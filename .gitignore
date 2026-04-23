@@ -1,0 +1,47 @@
+# Binaries and build artifacts
+/bin
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.test
+*.out
+
+# Go build/test artifacts
+*.prof
+*.cover
+coverage.out
+
+# Logs
+*.log
+*.log.*
+httpserver-test.log
+
+# Dependency directories
+go.work
+
+# Temporary directories
+/tmp
+tmp/
+/tmpverify
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment / config secrets
+.env
+.env.*
+
+# Air / build tooling
+
+
+# Node/JS artifacts (if tooling gets added later)
+node_modules/
+server.yaml

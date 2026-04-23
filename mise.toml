@@ -1,0 +1,6 @@
+[tools]
+air = "latest"
+go = "latest"
+
+[env]
+'_'.file = { path = ".env" }

@@ -1,0 +1,33 @@
+root = "."
+tmp_dir = "./tmp"
+
+[build]
+bin = "./tmp/server"
+cmd = "go build -o ./tmp/server ./cmd/server"
+delay = 500
+exclude_dir = ["tmp", "vendor", ".git"]
+exclude_file = []
+exclude_regex = ["_test\\.go"]
+exclude_unchanged = true
+follow_symlink = false
+full_bin = "./tmp/server serve --config ./server.yaml"
+include_dir = ["cmd", "internal"]
+include_ext = ["go", "c", "h", "yaml", "yml", "toml"]
+kill_delay = "0s"
+log = "build-errors.log"
+send_interrupt = true
+stop_on_error = true
+
+[color]
+app = "blue"
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"
+
+[log]
+main_only = false
+time = true
+
+[misc]
+clean_on_exit = true

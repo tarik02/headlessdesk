@@ -1,0 +1,232 @@
+package httpapi
+
+import (
+	"errors"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"libfreerdp-golang-poc/internal/control"
+)
+
+type screenshotRequest struct {
+	Crop *control.Crop `json:"crop"`
+}
+
+type clickRequest struct {
+	X      int    `json:"x" binding:"required"`
+	Y      int    `json:"y" binding:"required"`
+	Button string `json:"button" binding:"required"`
+}
+
+type pointRequest struct {
+	X int `json:"x" binding:"required"`
+	Y int `json:"y" binding:"required"`
+}
+
+type dragRequest struct {
+	Path []pointRequest `json:"path" binding:"required"`
+}
+
+type moveRequest struct {
+	X int `json:"x" binding:"required"`
+	Y int `json:"y" binding:"required"`
+}
+
+type scrollRequest struct {
+	X       int `json:"x" binding:"required"`
+	Y       int `json:"y" binding:"required"`
+	ScrollX int `json:"scrollX"`
+	ScrollY int `json:"scrollY"`
+}
+
+type keypressRequest struct {
+	Key string `json:"key" binding:"required"`
+}
+
+type typeRequest struct {
+	Text string `json:"text" binding:"required"`
+}
+
+type waitRequest struct {
+	MS int `json:"ms" binding:"required"`
+}
+
+type Handler struct {
+	service *control.Service
+}
+
+func RegisterRoutes(router gin.IRouter, service *control.Service) {
+	handler := &Handler{service: service}
+
+	router.GET("/screenshot", handler.screenshot)
+	router.POST("/click", handler.click)
+	router.POST("/double_click", handler.doubleClick)
+	router.POST("/drag", handler.drag)
+	router.POST("/move", handler.move)
+	router.POST("/scroll", handler.scroll)
+	router.POST("/keypress", handler.keypress)
+	router.POST("/type", handler.typeText)
+	router.POST("/wait", handler.wait)
+}
+
+func (h *Handler) screenshot(c *gin.Context) {
+	var req screenshotRequest
+	if err := bindOptionalJSON(c, &req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	png, err := h.service.Screenshot(control.ScreenshotCommand{Crop: req.Crop})
+	if err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	c.Data(http.StatusOK, "image/png", png)
+}
+
+func (h *Handler) click(c *gin.Context) {
+	var req clickRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.Click(control.ClickCommand{X: req.X, Y: req.Y, Button: req.Button}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) doubleClick(c *gin.Context) {
+	var req clickRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.DoubleClick(control.DoubleClickCommand{X: req.X, Y: req.Y, Button: req.Button}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) drag(c *gin.Context) {
+	var req dragRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	path := make([]control.Point, 0, len(req.Path))
+	for _, point := range req.Path {
+		path = append(path, control.Point{X: point.X, Y: point.Y})
+	}
+
+	if err := h.service.Drag(control.DragCommand{Path: path}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) move(c *gin.Context) {
+	var req moveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.Move(control.MoveCommand{X: req.X, Y: req.Y}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) scroll(c *gin.Context) {
+	var req scrollRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.Scroll(control.ScrollCommand{
+		X:       req.X,
+		Y:       req.Y,
+		ScrollX: req.ScrollX,
+		ScrollY: req.ScrollY,
+	}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) keypress(c *gin.Context) {
+	var req keypressRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.Keypress(control.KeypressCommand{Key: req.Key}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) typeText(c *gin.Context) {
+	var req typeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.Type(control.TypeCommand{Text: req.Text}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func (h *Handler) wait(c *gin.Context) {
+	var req waitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.writeBadRequest(c, err)
+		return
+	}
+
+	if err := h.service.Wait(control.WaitCommand{Duration: time.Duration(req.MS) * time.Millisecond}); err != nil {
+		h.writeUnavailable(c, err)
+		return
+	}
+	h.writeOK(c)
+}
+
+func bindOptionalJSON(c *gin.Context, dst any) error {
+	if c.Request.ContentLength == 0 {
+		return nil
+	}
+	if err := c.ShouldBindJSON(dst); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
+}
+
+func (h *Handler) writeBadRequest(c *gin.Context, err error) {
+	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+}
+
+func (h *Handler) writeUnavailable(c *gin.Context, err error) {
+	c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error(), "status": h.service.Status()})
+}
+
+func (h *Handler) writeOK(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
