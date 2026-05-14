@@ -20,6 +20,8 @@ import (
 	"time"
 	"unicode/utf16"
 	"unsafe"
+
+	"libfreerdp-golang-poc/internal/desktop"
 )
 
 type Config struct {
@@ -54,16 +56,7 @@ type ProbeResult struct {
 	Warning   string
 }
 
-type Status struct {
-	Connected bool   `json:"connected"`
-	Active    bool   `json:"active"`
-	Ready     bool   `json:"ready"`
-	State     string `json:"state"`
-	Version   string `json:"freerdp"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
-	Error     string `json:"error,omitempty"`
-}
+type Status = desktop.Status
 
 type Session struct {
 	mu        sync.RWMutex
@@ -186,7 +179,7 @@ func (s *Session) run() {
 
 func (s *Session) Status() Status {
 	client := s.getClient()
-	status := Status{Version: C.GoString(C.gofreerdp_version()), Error: s.ErrString()}
+	status := Status{Protocol: "rdp", Version: C.GoString(C.gofreerdp_version()), Error: s.ErrString()}
 	if client == nil {
 		status.State = "CLOSED"
 		return status

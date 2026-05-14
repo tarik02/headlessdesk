@@ -18,28 +18,48 @@ import (
 	"github.com/spf13/viper"
 
 	"libfreerdp-golang-poc/internal/control"
+	"libfreerdp-golang-poc/internal/desktop"
 	"libfreerdp-golang-poc/internal/freerdp"
 	"libfreerdp-golang-poc/internal/healthapi"
 	"libfreerdp-golang-poc/internal/httpapi"
 	"libfreerdp-golang-poc/internal/mcpapi"
+	"libfreerdp-golang-poc/internal/vnc"
 )
 
 type config struct {
+	Server  serverConfig  `mapstructure:"server"`
+	Session sessionConfig `mapstructure:"session"`
+	RDP     rdpConfig     `mapstructure:"rdp"`
+	VNC     vncConfig     `mapstructure:"vnc"`
+}
+
+type serverConfig struct {
 	ListenAddr    string `mapstructure:"listen_addr"`
 	MCPPath       string `mapstructure:"mcp_path"`
 	EnableHTTPAPI bool   `mapstructure:"enable_http_api"`
 	EnableMCPAPI  bool   `mapstructure:"enable_mcp_api"`
+}
 
-	Host           string `mapstructure:"host"`
-	Port           uint   `mapstructure:"port"`
-	Username       string `mapstructure:"username"`
-	Password       string `mapstructure:"password"`
+type sessionConfig struct {
+	Protocol string `mapstructure:"protocol"`
+	Host     string `mapstructure:"host"`
+	Port     uint   `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	Width    uint   `mapstructure:"width"`
+	Height   uint   `mapstructure:"height"`
+	Insecure bool   `mapstructure:"insecure"`
+}
+
+type rdpConfig struct {
 	Domain         string `mapstructure:"domain"`
-	Width          uint   `mapstructure:"width"`
-	Height         uint   `mapstructure:"height"`
 	KeyboardLayout uint   `mapstructure:"keyboard_layout"`
-	Insecure       bool   `mapstructure:"insecure"`
 	GraphicsMode   string `mapstructure:"graphics_mode"`
+}
+
+type vncConfig struct {
+	Shared   bool `mapstructure:"shared"`
+	ViewOnly bool `mapstructure:"view_only"`
 }
 
 func New() *cobra.Command {
@@ -48,34 +68,42 @@ func New() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "server",
-		Short:         "RDP screenshot and control server",
+		Short:         "Remote desktop screenshot and control server",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 
+	setDefaults(v)
+
 	persistentFlags := cmd.PersistentFlags()
 	persistentFlags.StringVar(&configPath, "config", "", "path to a YAML, TOML, or JSON config file")
-	persistentFlags.String("host", "", "RDP server hostname or IP")
-	persistentFlags.Uint("port", 3389, "RDP server port")
-	persistentFlags.String("username", "", "RDP username")
-	persistentFlags.String("password", "", "RDP password")
-	persistentFlags.String("domain", "", "optional RDP domain")
+	persistentFlags.String("protocol", "rdp", "remote desktop protocol: rdp or vnc")
+	persistentFlags.String("remote-host", "", "remote desktop server hostname or IP")
+	persistentFlags.Uint("remote-port", 0, "remote desktop server port; defaults to the selected protocol")
+	persistentFlags.String("username", "", "remote desktop username")
+	persistentFlags.String("password", "", "remote desktop password")
 	persistentFlags.Uint("width", 1280, "requested remote desktop width")
 	persistentFlags.Uint("height", 720, "requested remote desktop height")
-	persistentFlags.Uint("keyboard-layout", 0x0409, "RDP keyboard layout id")
-	persistentFlags.Bool("insecure", false, "accept unknown or changed server certificates")
-	persistentFlags.String("graphics-mode", "auto", "graphics transport: auto, gfx, or bitmap")
+	persistentFlags.Bool("insecure", false, "accept unknown or changed server certificates where supported")
+	persistentFlags.String("rdp-domain", "", "optional RDP domain")
+	persistentFlags.Uint("rdp-keyboard-layout", 0x0409, "RDP keyboard layout id")
+	persistentFlags.String("rdp-graphics-mode", "auto", "RDP graphics transport: auto, gfx, or bitmap")
+	persistentFlags.Bool("vnc-shared", true, "request a shared VNC session")
+	persistentFlags.Bool("vnc-view-only", false, "connect to VNC without sending input events")
 
-	mustBindFlag(v, "host", persistentFlags.Lookup("host"))
-	mustBindFlag(v, "port", persistentFlags.Lookup("port"))
-	mustBindFlag(v, "username", persistentFlags.Lookup("username"))
-	mustBindFlag(v, "password", persistentFlags.Lookup("password"))
-	mustBindFlag(v, "domain", persistentFlags.Lookup("domain"))
-	mustBindFlag(v, "width", persistentFlags.Lookup("width"))
-	mustBindFlag(v, "height", persistentFlags.Lookup("height"))
-	mustBindFlag(v, "keyboard_layout", persistentFlags.Lookup("keyboard-layout"))
-	mustBindFlag(v, "insecure", persistentFlags.Lookup("insecure"))
-	mustBindFlag(v, "graphics_mode", persistentFlags.Lookup("graphics-mode"))
+	mustBindFlag(v, "session.protocol", persistentFlags.Lookup("protocol"))
+	mustBindFlag(v, "session.host", persistentFlags.Lookup("remote-host"))
+	mustBindFlag(v, "session.port", persistentFlags.Lookup("remote-port"))
+	mustBindFlag(v, "session.username", persistentFlags.Lookup("username"))
+	mustBindFlag(v, "session.password", persistentFlags.Lookup("password"))
+	mustBindFlag(v, "session.width", persistentFlags.Lookup("width"))
+	mustBindFlag(v, "session.height", persistentFlags.Lookup("height"))
+	mustBindFlag(v, "session.insecure", persistentFlags.Lookup("insecure"))
+	mustBindFlag(v, "rdp.domain", persistentFlags.Lookup("rdp-domain"))
+	mustBindFlag(v, "rdp.keyboard_layout", persistentFlags.Lookup("rdp-keyboard-layout"))
+	mustBindFlag(v, "rdp.graphics_mode", persistentFlags.Lookup("rdp-graphics-mode"))
+	mustBindFlag(v, "vnc.shared", persistentFlags.Lookup("vnc-shared"))
+	mustBindFlag(v, "vnc.view_only", persistentFlags.Lookup("vnc-view-only"))
 
 	cmd.AddCommand(newServeCommand(v, &configPath))
 	cmd.AddCommand(newStdioMCPCommand(v, &configPath))
@@ -95,7 +123,7 @@ func newServeCommand(v *viper.Viper, configPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := validateRDPConfig(cfg); err != nil {
+			if err := validateSessionConfig(cfg); err != nil {
 				return err
 			}
 			if err := validateServeConfig(cfg); err != nil {
@@ -111,10 +139,10 @@ func newServeCommand(v *viper.Viper, configPath *string) *cobra.Command {
 	flags.Bool("enable-http-api", true, "enable the REST screenshot and input API")
 	flags.Bool("enable-mcp-api", true, "enable the MCP streamable HTTP API")
 
-	mustBindFlag(v, "listen_addr", flags.Lookup("listen-addr"))
-	mustBindFlag(v, "mcp_path", flags.Lookup("mcp-path"))
-	mustBindFlag(v, "enable_http_api", flags.Lookup("enable-http-api"))
-	mustBindFlag(v, "enable_mcp_api", flags.Lookup("enable-mcp-api"))
+	mustBindFlag(v, "server.listen_addr", flags.Lookup("listen-addr"))
+	mustBindFlag(v, "server.mcp_path", flags.Lookup("mcp-path"))
+	mustBindFlag(v, "server.enable_http_api", flags.Lookup("enable-http-api"))
+	mustBindFlag(v, "server.enable_mcp_api", flags.Lookup("enable-mcp-api"))
 
 	return cmd
 }
@@ -128,7 +156,7 @@ func newStdioMCPCommand(v *viper.Viper, configPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := validateRDPConfig(cfg); err != nil {
+			if err := validateSessionConfig(cfg); err != nil {
 				return err
 			}
 			return runStdioMCP(cfg)
@@ -136,9 +164,18 @@ func newStdioMCPCommand(v *viper.Viper, configPath *string) *cobra.Command {
 	}
 }
 
+func setDefaults(v *viper.Viper) {
+	v.SetDefault("session.protocol", "rdp")
+	v.SetDefault("session.width", 1280)
+	v.SetDefault("session.height", 720)
+	v.SetDefault("rdp.keyboard_layout", 0x0409)
+	v.SetDefault("rdp.graphics_mode", "auto")
+	v.SetDefault("vnc.shared", true)
+}
+
 func loadConfig(v *viper.Viper, configPath string) (config, error) {
-	v.SetEnvPrefix("RDP")
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	v.SetEnvPrefix("HEADLESSRDP")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.AutomaticEnv()
 
 	if configPath != "" {
@@ -155,42 +192,54 @@ func loadConfig(v *viper.Viper, configPath string) (config, error) {
 	return cfg, nil
 }
 
-func validateRDPConfig(cfg config) error {
-	if strings.TrimSpace(cfg.Host) == "" {
-		return errors.New("host is required")
+func validateSessionConfig(cfg config) error {
+	protocol := normalizedProtocol(cfg)
+	if protocol == "" {
+		return errors.New("session.protocol is required")
 	}
-	if strings.TrimSpace(cfg.Username) == "" {
-		return errors.New("username is required")
+	if protocol != "rdp" && protocol != "vnc" {
+		return fmt.Errorf("invalid session.protocol: %q", cfg.Session.Protocol)
 	}
-	if strings.TrimSpace(cfg.Password) == "" {
-		return errors.New("password is required")
+	if strings.TrimSpace(cfg.Session.Host) == "" {
+		return errors.New("session.host is required")
 	}
-	if cfg.Port > math.MaxUint16 {
-		return fmt.Errorf("invalid port: %d", cfg.Port)
+	if protocol == "rdp" && strings.TrimSpace(cfg.Session.Username) == "" {
+		return errors.New("session.username is required for rdp")
 	}
-	if cfg.Width == 0 {
-		return errors.New("width must be greater than zero")
+	if protocol == "rdp" && strings.TrimSpace(cfg.Session.Password) == "" {
+		return errors.New("session.password is required for rdp")
 	}
-	if cfg.Height == 0 {
-		return errors.New("height must be greater than zero")
+	if cfg.Session.Port > math.MaxUint16 {
+		return fmt.Errorf("invalid session.port: %d", cfg.Session.Port)
 	}
-	if cfg.Width > math.MaxUint32 || cfg.Height > math.MaxUint32 {
-		return fmt.Errorf("invalid dimensions: %dx%d", cfg.Width, cfg.Height)
+	if cfg.Session.Width == 0 {
+		return errors.New("session.width must be greater than zero")
 	}
-	switch strings.ToLower(strings.TrimSpace(cfg.GraphicsMode)) {
-	case "", "auto", "avc", "h264", "gfx", "graphics", "bitmap", "legacy":
-	default:
-		return fmt.Errorf("invalid graphics-mode: %q", cfg.GraphicsMode)
+	if cfg.Session.Height == 0 {
+		return errors.New("session.height must be greater than zero")
+	}
+	if cfg.Session.Width > math.MaxUint32 || cfg.Session.Height > math.MaxUint32 {
+		return fmt.Errorf("invalid session dimensions: %dx%d", cfg.Session.Width, cfg.Session.Height)
+	}
+	if protocol == "rdp" {
+		switch strings.ToLower(strings.TrimSpace(cfg.RDP.GraphicsMode)) {
+		case "", "auto", "avc", "h264", "gfx", "graphics", "bitmap", "legacy":
+		default:
+			return fmt.Errorf("invalid rdp.graphics_mode: %q", cfg.RDP.GraphicsMode)
+		}
+	}
+	if protocol == "vnc" && cfg.VNC.ViewOnly {
+		return errors.New("vnc.view_only cannot be true because control APIs require input")
 	}
 	return nil
 }
 
 func validateServeConfig(cfg config) error {
-	if strings.TrimSpace(cfg.ListenAddr) == "" {
-		return errors.New("listen-addr is required")
+	if strings.TrimSpace(cfg.Server.ListenAddr) == "" {
+		return errors.New("server.listen_addr is required")
 	}
-	if cfg.EnableMCPAPI && !strings.HasPrefix(cfg.MCPPath, "/") {
-		return errors.New("mcp-path must start with '/'")
+	if cfg.Server.EnableMCPAPI && !strings.HasPrefix(cfg.Server.MCPPath, "/") {
+		return errors.New("server.mcp_path must start with '/'")
 	}
 	return nil
 }
@@ -206,22 +255,22 @@ func runServe(cfg config) error {
 	router := gin.Default()
 
 	healthapi.RegisterRoutes(router, service)
-	if cfg.EnableHTTPAPI {
+	if cfg.Server.EnableHTTPAPI {
 		httpapi.RegisterRoutes(router, service)
 	}
-	if cfg.EnableMCPAPI {
-		router.Any(cfg.MCPPath, gin.WrapH(mcpapi.NewHTTPHandler(service)))
+	if cfg.Server.EnableMCPAPI {
+		router.Any(cfg.Server.MCPPath, gin.WrapH(mcpapi.NewHTTPHandler(service)))
 	}
 
 	server := &http.Server{
-		Addr:    cfg.ListenAddr,
+		Addr:    cfg.Server.ListenAddr,
 		Handler: router,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("http server listening on %s", cfg.ListenAddr)
+	log.Printf("http server listening on %s", cfg.Server.ListenAddr)
 	serverErrCh := make(chan error, 1)
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -238,7 +287,7 @@ func runServe(cfg config) error {
 		return shutdownHTTPServer(server)
 	case <-session.Done():
 		if err := session.Err(); err != nil {
-			log.Printf("rdp session ended: %v", err)
+			log.Printf("%s session ended: %v", normalizedProtocol(cfg), err)
 			if shutdownErr := shutdownHTTPServer(server); shutdownErr != nil {
 				return errors.Join(err, shutdownErr)
 			}
@@ -254,7 +303,7 @@ func runStdioMCP(cfg config) error {
 		return err
 	}
 	defer closeSession(session)
-	logSessionEnd(session)
+	logSessionEnd(normalizedProtocol(cfg), session)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -262,26 +311,57 @@ func runStdioMCP(cfg config) error {
 	return mcpapi.RunStdio(ctx, control.NewService(session))
 }
 
-func startSession(cfg config) (*freerdp.Session, error) {
-	session, err := freerdp.StartSession(freerdp.Config{
-		Host:               cfg.Host,
-		Port:               uint16(cfg.Port),
-		Username:           cfg.Username,
-		Password:           cfg.Password,
-		Domain:             cfg.Domain,
-		DesktopWidth:       uint32(cfg.Width),
-		DesktopHeight:      uint32(cfg.Height),
-		KeyboardLayout:     uint32(cfg.KeyboardLayout),
-		InsecureSkipVerify: cfg.Insecure,
-		GraphicsMode:       cfg.GraphicsMode,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("start RDP session: %w", err)
+func startSession(cfg config) (desktop.Session, error) {
+	switch normalizedProtocol(cfg) {
+	case "rdp":
+		session, err := freerdp.StartSession(freerdp.Config{
+			Host:               cfg.Session.Host,
+			Port:               sessionPort(cfg, 3389),
+			Username:           cfg.Session.Username,
+			Password:           cfg.Session.Password,
+			Domain:             cfg.RDP.Domain,
+			DesktopWidth:       uint32(cfg.Session.Width),
+			DesktopHeight:      uint32(cfg.Session.Height),
+			KeyboardLayout:     uint32(cfg.RDP.KeyboardLayout),
+			InsecureSkipVerify: cfg.Session.Insecure,
+			GraphicsMode:       cfg.RDP.GraphicsMode,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("start RDP session: %w", err)
+		}
+		return session, nil
+	case "vnc":
+		session, err := vnc.StartSession(vnc.Config{
+			Host:          cfg.Session.Host,
+			Port:          sessionPort(cfg, 5900),
+			Username:      cfg.Session.Username,
+			Password:      cfg.Session.Password,
+			DesktopWidth:  uint32(cfg.Session.Width),
+			DesktopHeight: uint32(cfg.Session.Height),
+			Shared:        cfg.VNC.Shared,
+			ViewOnly:      cfg.VNC.ViewOnly,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("start VNC session: %w", err)
+		}
+		return session, nil
+	default:
+		return nil, fmt.Errorf("unsupported protocol: %s", cfg.Session.Protocol)
 	}
-	return session, nil
 }
 
-func closeSession(session *freerdp.Session) {
+func normalizedProtocol(cfg config) string {
+	return strings.ToLower(strings.TrimSpace(cfg.Session.Protocol))
+}
+
+func sessionPort(cfg config, fallback uint16) uint16 {
+	if cfg.Session.Port == 0 {
+		return fallback
+	}
+	return uint16(cfg.Session.Port)
+}
+
+func closeSession(session desktop.Session) {
 	select {
 	case <-session.Done():
 		_ = session.Close()
@@ -303,14 +383,14 @@ func shutdownHTTPServer(server *http.Server) error {
 	return nil
 }
 
-func logSessionEnd(session *freerdp.Session) {
+func logSessionEnd(protocol string, session desktop.Session) {
 	go func() {
 		<-session.Done()
 		if err := session.Err(); err != nil {
-			log.Printf("rdp session ended: %v", err)
+			log.Printf("%s session ended: %v", protocol, err)
 			return
 		}
-		log.Printf("rdp session ended")
+		log.Printf("%s session ended", protocol)
 	}()
 }
 

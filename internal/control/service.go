@@ -10,21 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"libfreerdp-golang-poc/internal/freerdp"
+	"libfreerdp-golang-poc/internal/desktop"
 )
 
-type Status = freerdp.Status
+type Status = desktop.Status
 
-type Backend interface {
-	Status() freerdp.Status
-	ScreenshotPNG() ([]byte, error)
-	SendKey(name string, down bool, repeat bool) error
-	SendKeyScancode(scancode uint32, down bool, repeat bool) error
-	TypeText(text string) error
-	MoveMouse(x int, y int) error
-	SendMouseButton(button string, x int, y int, down bool) error
-	SendMouseWheel(x int, y int, delta int, horizontal bool) error
-}
+type Backend = desktop.Backend
 
 type Service struct {
 	backend Backend
