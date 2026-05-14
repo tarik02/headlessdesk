@@ -74,6 +74,37 @@ static BOOL gofreerdp_snapshot_update(gofreerdp_context* ctx) {
 	return TRUE;
 }
 
+static BOOL gofreerdp_gfx_pipeline_init(rdpContext* context, RdpgfxClientContext* gfx) {
+	if (!context || !context->gdi || !gfx)
+		return FALSE;
+
+	gofreerdp_context* ctx = (gofreerdp_context*)context;
+	if (ctx->gfx_gdi_initialized)
+		return TRUE;
+
+	if (!gdi_graphics_pipeline_init(context->gdi, gfx)) {
+		gofreerdp_set_error(ctx, "failed to initialize GDI graphics pipeline");
+		return FALSE;
+	}
+
+	ctx->gfx = gfx;
+	ctx->gfx_gdi_initialized = TRUE;
+	return TRUE;
+}
+
+static void gofreerdp_gfx_pipeline_uninit(rdpContext* context) {
+	if (!context)
+		return;
+
+	gofreerdp_context* ctx = (gofreerdp_context*)context;
+	if (!ctx->gfx_gdi_initialized || !context->gdi || !ctx->gfx)
+		return;
+
+	gdi_graphics_pipeline_uninit(context->gdi, ctx->gfx);
+	ctx->gfx = NULL;
+	ctx->gfx_gdi_initialized = FALSE;
+}
+
 static BOOL gofreerdp_begin_paint(rdpContext* context) {
 	if (!context || !context->gdi || !context->gdi->primary || !context->gdi->primary->hdc ||
 		!context->gdi->primary->hdc->hwnd || !context->gdi->primary->hdc->hwnd->invalid)
@@ -116,10 +147,17 @@ static BOOL gofreerdp_desktop_resize(rdpContext* context) {
 
 static void gofreerdp_on_channel_connected(void* context, const ChannelConnectedEventArgs* e) {
 	freerdp_client_OnChannelConnectedEventHandler(context, e);
+	if (!context || !e || !e->name || !e->pInterface)
+		return;
+
+	if (strcmp(e->name, RDPGFX_DVC_CHANNEL_NAME) == 0)
+		(void)gofreerdp_gfx_pipeline_init((rdpContext*)context, (RdpgfxClientContext*)e->pInterface);
 }
 
 static void gofreerdp_on_channel_disconnected(void* context,
 		const ChannelDisconnectedEventArgs* e) {
+	if (context && e && e->name && (strcmp(e->name, RDPGFX_DVC_CHANNEL_NAME) == 0))
+		gofreerdp_gfx_pipeline_uninit((rdpContext*)context);
 	freerdp_client_OnChannelDisconnectedEventHandler(context, e);
 }
 
@@ -150,11 +188,13 @@ static BOOL gofreerdp_post_connect(freerdp* instance) {
 		return FALSE;
 
 	rdpContext* context = instance->context;
+	gofreerdp_context* ctx = (gofreerdp_context*)context;
 	context->update->BeginPaint = gofreerdp_begin_paint;
 	context->update->EndPaint = gofreerdp_end_paint;
 	context->update->DesktopResize = gofreerdp_desktop_resize;
+	if (ctx->gfx)
+		(void)gofreerdp_gfx_pipeline_init(context, ctx->gfx);
 
-	gofreerdp_context* ctx = (gofreerdp_context*)context;
 	ctx->connected = TRUE;
 	gofreerdp_snapshot_reset(ctx);
 	gofreerdp_set_error(ctx, "");
@@ -168,6 +208,7 @@ static void gofreerdp_post_disconnect(freerdp* instance) {
 	rdpContext* context = instance->context;
 	gofreerdp_context* ctx = (gofreerdp_context*)context;
 	ctx->connected = FALSE;
+	gofreerdp_gfx_pipeline_uninit(context);
 	PubSub_UnsubscribeChannelConnected(context->pubSub, gofreerdp_on_channel_connected);
 	PubSub_UnsubscribeChannelDisconnected(context->pubSub, gofreerdp_on_channel_disconnected);
 	if (context->gdi)
@@ -186,6 +227,8 @@ static BOOL gofreerdp_context_new(freerdp* instance, rdpContext* context) {
 	ctx->snapshot_stride = 0;
 	ctx->snapshot_ready = FALSE;
 	ctx->connected = FALSE;
+	ctx->gfx = NULL;
+	ctx->gfx_gdi_initialized = FALSE;
 	ctx->last_error[0] = '\0';
 	return pthread_mutex_init(&ctx->snapshot_mutex, NULL) == 0;
 }
@@ -542,6 +585,8 @@ size_t gofreerdp_snapshot_size(gofreerdp_client* client, UINT32* width, UINT32* 
 	if (!ctx)
 		return 0;
 
+	(void)gofreerdp_snapshot_update(ctx);
+
 	pthread_mutex_lock(&ctx->snapshot_mutex);
 	const size_t size = ctx->snapshot_ready ? ctx->snapshot_size : 0;
 	if (size > 0) {
@@ -568,6 +613,8 @@ int gofreerdp_copy_snapshot(gofreerdp_client* client, BYTE* dst, size_t dst_len,
 	gofreerdp_context* ctx = gofreerdp_get_ctx(client);
 	if (!ctx || !dst)
 		return 0;
+
+	(void)gofreerdp_snapshot_update(ctx);
 
 	pthread_mutex_lock(&ctx->snapshot_mutex);
 	if (!ctx->snapshot_ready || (ctx->snapshot_size == 0) || (dst_len < ctx->snapshot_size)) {
