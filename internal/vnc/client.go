@@ -1,22 +1,25 @@
 package vnc
 
+/*
+#cgo pkg-config: libvncclient
+#include <stdlib.h>
+#include "client_bridge.h"
+*/
+import "C"
+
 import (
 	"bytes"
-	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"image"
 	"image/png"
-	"net"
+	"runtime/cgo"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	kwardvnc "github.com/kward/go-vnc"
-	"github.com/kward/go-vnc/buttons"
-	"github.com/kward/go-vnc/keys"
-	"github.com/kward/go-vnc/rfbflags"
+	"unsafe"
 
 	"libfreerdp-golang-poc/internal/desktop"
 )
@@ -35,15 +38,15 @@ type Config struct {
 
 const (
 	defaultPort          uint16 = 5900
-	connectTimeout              = 10 * time.Second
 	frameRequestInterval        = 100 * time.Millisecond
+	waitInterval                = 100 * time.Millisecond
 )
 
-// Session is a VNC/RFB-backed remote desktop session.
+// Session is a LibVNCClient-backed remote desktop session.
 type Session struct {
-	conn     *kwardvnc.ClientConn
-	messages chan kwardvnc.ServerMessage
-	done     chan struct{}
+	client *C.rfbClient
+	handle cgo.Handle
+	done   chan struct{}
 
 	mu        sync.RWMutex
 	inputMu   sync.Mutex
@@ -53,62 +56,50 @@ type Session struct {
 	frame     *image.NRGBA
 }
 
-// StartSession connects to a VNC server using github.com/kward/go-vnc and
-// starts the framebuffer/message pump required by the shared desktop.Session
-// interface.
+// StartSession connects to a VNC server with LibVNCClient.
 func StartSession(cfg Config) (desktop.Session, error) {
 	cfg = normalizeConfig(cfg)
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
 	}
 
-	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(int(cfg.Port)))
-	dialer := net.Dialer{Timeout: connectTimeout}
-	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
-	defer cancel()
-
-	netConn, err := dialer.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("connect to VNC server %s: %w", addr, err)
-	}
-
-	messageCh := make(chan kwardvnc.ServerMessage, 16)
-	clientCfg := kwardvnc.NewClientConfig(cfg.Password)
-	clientCfg.Exclusive = !cfg.Shared
-	clientCfg.ServerMessageCh = messageCh
-
-	client, err := kwardvnc.Connect(ctx, netConn, clientCfg)
-	if err != nil {
-		_ = netConn.Close()
-		return nil, fmt.Errorf("negotiate VNC session: %w", err)
-	}
-
-	if err := client.SetEncodings(kwardvnc.Encodings{
-		&kwardvnc.RawEncoding{},
-		&kwardvnc.DesktopSizePseudoEncoding{},
-	}); err != nil {
-		_ = client.Close()
-		return nil, fmt.Errorf("configure VNC encodings: %w", err)
-	}
-
 	s := &Session{
-		conn:     client,
-		messages: messageCh,
-		done:     make(chan struct{}),
+		done: make(chan struct{}),
 		status: desktop.Status{
 			Protocol:  "vnc",
 			Connected: true,
 			Active:    true,
-			State:     "CONNECTED",
-			Version:   client.DesktopName(),
-			Width:     int(client.FramebufferWidth()),
-			Height:    int(client.FramebufferHeight()),
+			State:     "CONNECTING",
 		},
-		frame: image.NewNRGBA(image.Rect(0, 0, int(client.FramebufferWidth()), int(client.FramebufferHeight()))),
 	}
+	s.handle = cgo.NewHandle(s)
+
+	host := C.CString(cfg.Host)
+	password := C.CString(cfg.Password)
+	defer C.free(unsafe.Pointer(host))
+	defer C.free(unsafe.Pointer(password))
+
+	shared := C.int(0)
+	if cfg.Shared {
+		shared = 1
+	}
+	client := C.govnc_new_client(host, C.int(cfg.Port), password, shared, C.uintptr_t(s.handle))
+	if client == nil {
+		s.handle.Delete()
+		return nil, fmt.Errorf("connect to VNC server %s:%d", cfg.Host, cfg.Port)
+	}
+	s.client = client
+
+	s.mu.Lock()
+	s.status.State = "CONNECTED"
+	s.status.Width = int(client.width)
+	s.status.Height = int(client.height)
+	if client.desktopName != nil {
+		s.status.Version = C.GoString(client.desktopName)
+	}
+	s.mu.Unlock()
 
 	go s.run()
-	_ = s.requestFrame(false)
 	return s, nil
 }
 
@@ -132,7 +123,7 @@ func validateConfig(cfg Config) error {
 		return errors.New("vnc height must be greater than zero")
 	}
 	if cfg.ViewOnly {
-		return fmt.Errorf("vnc view_only cannot satisfy control APIs that require input")
+		return errors.New("vnc view_only cannot satisfy control APIs that require input")
 	}
 	return nil
 }
@@ -140,113 +131,106 @@ func validateConfig(cfg Config) error {
 func (s *Session) run() {
 	defer close(s.done)
 
-	listenErrCh := make(chan error, 1)
-	go func() {
-		listenErrCh <- s.conn.ListenAndHandle()
-	}()
-
 	ticker := time.NewTicker(frameRequestInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case msg, ok := <-s.messages:
-			if !ok {
-				s.setDisconnected()
-				return
-			}
-			s.handleServerMessage(msg)
 		case <-ticker.C:
 			if err := s.requestFrame(true); err != nil {
 				s.setErr(err)
 				s.setDisconnected()
 				return
 			}
-		case err := <-listenErrCh:
-			if err != nil {
-				s.setErr(fmt.Errorf("VNC read loop ended: %w", err))
+		default:
+			if C.govnc_wait_for_message(s.client, C.uint(waitInterval/time.Microsecond)) == 0 {
+				s.setErr(errors.New("VNC wait for message failed"))
+				s.setDisconnected()
+				return
 			}
-			s.setDisconnected()
-			return
+			if C.govnc_handle_server_message(s.client) == 0 {
+				s.setErr(errors.New("VNC read loop ended"))
+				s.setDisconnected()
+				return
+			}
 		}
 	}
 }
 
-func (s *Session) handleServerMessage(msg kwardvnc.ServerMessage) {
-	switch update := msg.(type) {
-	case *kwardvnc.FramebufferUpdate:
-		s.applyFramebufferUpdate(update)
+func (s *Session) updateFramebuffer(data unsafe.Pointer, width int, height int, bytesPerPixel int, bigEndian bool, redShift int, greenShift int, blueShift int, redMax int, greenMax int, blueMax int) {
+	if data == nil || width <= 0 || height <= 0 || bytesPerPixel <= 0 {
+		return
 	}
-}
 
-func (s *Session) applyFramebufferUpdate(update *kwardvnc.FramebufferUpdate) {
+	size := width * height * bytesPerPixel
+	src := unsafe.Slice((*byte)(data), size)
+	frame := image.NewNRGBA(image.Rect(0, 0, width, height))
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			offset := (y*width + x) * bytesPerPixel
+			pixel := readPixel(src[offset:offset+bytesPerPixel], bigEndian)
+			dst := frame.PixOffset(x, y)
+			frame.Pix[dst+0] = scaleComponent((pixel>>redShift)&uint32(redMax), redMax)
+			frame.Pix[dst+1] = scaleComponent((pixel>>greenShift)&uint32(greenMax), greenMax)
+			frame.Pix[dst+2] = scaleComponent((pixel>>blueShift)&uint32(blueMax), blueMax)
+			frame.Pix[dst+3] = 0xff
+		}
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	for _, rect := range update.Rects {
-		s.ensureFrameSizeLocked(int(s.conn.FramebufferWidth()), int(s.conn.FramebufferHeight()))
-		raw, ok := rect.Enc.(*kwardvnc.RawEncoding)
-		if !ok {
-			continue
-		}
-		s.copyRawRectLocked(rect, raw)
-	}
-
-	s.status.Ready = s.frame != nil && !s.frame.Bounds().Empty()
-	s.status.Width = s.frame.Bounds().Dx()
-	s.status.Height = s.frame.Bounds().Dy()
+	s.frame = frame
+	s.status.Ready = true
+	s.status.Width = width
+	s.status.Height = height
 	s.status.State = "ACTIVE"
 }
 
-func (s *Session) ensureFrameSizeLocked(width int, height int) {
-	if width <= 0 || height <= 0 {
-		return
-	}
-	if s.frame != nil && s.frame.Bounds().Dx() == width && s.frame.Bounds().Dy() == height {
-		return
-	}
-	s.frame = image.NewNRGBA(image.Rect(0, 0, width, height))
-}
-
-func (s *Session) copyRawRectLocked(rect kwardvnc.Rectangle, raw *kwardvnc.RawEncoding) {
-	if s.frame == nil {
-		return
-	}
-	for y := 0; y < int(rect.Height); y++ {
-		for x := 0; x < int(rect.Width); x++ {
-			src := y*int(rect.Width) + x
-			if src >= len(raw.Colors) {
-				return
-			}
-			dx := int(rect.X) + x
-			dy := int(rect.Y) + y
-			if !image.Pt(dx, dy).In(s.frame.Bounds()) {
-				continue
-			}
-			dst := s.frame.PixOffset(dx, dy)
-			color := raw.Colors[src]
-			s.frame.Pix[dst+0] = scaleColor(color.R)
-			s.frame.Pix[dst+1] = scaleColor(color.G)
-			s.frame.Pix[dst+2] = scaleColor(color.B)
-			s.frame.Pix[dst+3] = 0xff
+func readPixel(data []byte, bigEndian bool) uint32 {
+	switch len(data) {
+	case 4:
+		if bigEndian {
+			return binary.BigEndian.Uint32(data)
 		}
+		return binary.LittleEndian.Uint32(data)
+	case 3:
+		if bigEndian {
+			return uint32(data[0])<<16 | uint32(data[1])<<8 | uint32(data[2])
+		}
+		return uint32(data[2])<<16 | uint32(data[1])<<8 | uint32(data[0])
+	case 2:
+		if bigEndian {
+			return uint32(binary.BigEndian.Uint16(data))
+		}
+		return uint32(binary.LittleEndian.Uint16(data))
+	case 1:
+		return uint32(data[0])
+	default:
+		return 0
 	}
 }
 
-func scaleColor(v uint16) byte {
-	if v <= 0xff {
-		return byte(v)
+func scaleComponent(value uint32, max int) byte {
+	if max <= 0 {
+		return 0
 	}
-	return byte(v >> 8)
+	if max == 255 {
+		return byte(value)
+	}
+	return byte((value * 255) / uint32(max))
 }
 
 func (s *Session) requestFrame(incremental bool) error {
-	flag := rfbflags.RFBFalse
+	value := C.int(0)
 	if incremental {
-		flag = rfbflags.RFBTrue
+		value = 1
 	}
 	return s.withInputLock(func() error {
-		return s.conn.FramebufferUpdateRequest(flag, 0, 0, s.conn.FramebufferWidth(), s.conn.FramebufferHeight())
+		if C.govnc_send_frame_request(s.client, value) == 0 {
+			return errors.New("send VNC framebuffer request")
+		}
+		return nil
 	})
 }
 
@@ -282,7 +266,10 @@ func (s *Session) SendKey(name string, down bool, repeat bool) error {
 		return err
 	}
 	return s.withInputLock(func() error {
-		return s.conn.KeyEvent(key, down)
+		if C.govnc_send_key(s.client, C.uint32_t(key), boolToCInt(down)) == 0 {
+			return fmt.Errorf("send VNC key event: %s", name)
+		}
+		return nil
 	})
 }
 
@@ -294,17 +281,17 @@ func (s *Session) TypeText(text string) error {
 	if text == "" {
 		return errors.New("text is required")
 	}
-	sequence, err := keys.TextToKeys(text)
-	if err != nil {
-		return err
-	}
 	return s.withInputLock(func() error {
-		for _, key := range sequence {
-			if err := s.conn.KeyEvent(key, kwardvnc.PressKey); err != nil {
-				return err
+		for _, r := range text {
+			key := keysymForRune(r)
+			if key == 0 {
+				return fmt.Errorf("unsupported text rune: %s", strconv.QuoteRune(r))
 			}
-			if err := s.conn.KeyEvent(key, kwardvnc.ReleaseKey); err != nil {
-				return err
+			if C.govnc_send_key(s.client, C.uint32_t(key), 1) == 0 {
+				return fmt.Errorf("send VNC key down: %s", strconv.QuoteRune(r))
+			}
+			if C.govnc_send_key(s.client, C.uint32_t(key), 0) == 0 {
+				return fmt.Errorf("send VNC key up: %s", strconv.QuoteRune(r))
 			}
 		}
 		return nil
@@ -316,9 +303,7 @@ func (s *Session) MoveMouse(x int, y int) error {
 	if err != nil {
 		return err
 	}
-	return s.withInputLock(func() error {
-		return s.conn.PointerEvent(buttons.None, mouseX, mouseY)
-	})
+	return s.sendPointer(mouseX, mouseY, 0)
 }
 
 func (s *Session) SendMouseButton(button string, x int, y int, down bool) error {
@@ -331,11 +316,9 @@ func (s *Session) SendMouseButton(button string, x int, y int, down bool) error 
 		return err
 	}
 	if !down {
-		mask = buttons.None
+		mask = 0
 	}
-	return s.withInputLock(func() error {
-		return s.conn.PointerEvent(mask, mouseX, mouseY)
-	})
+	return s.sendPointer(mouseX, mouseY, mask)
 }
 
 func (s *Session) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
@@ -348,10 +331,22 @@ func (s *Session) SendMouseWheel(x int, y int, delta int, horizontal bool) error
 	}
 	mask := wheelMask(delta, horizontal)
 	return s.withInputLock(func() error {
-		if err := s.conn.PointerEvent(mask, mouseX, mouseY); err != nil {
-			return err
+		if C.govnc_send_pointer(s.client, C.int(mouseX), C.int(mouseY), C.int(mask)) == 0 {
+			return errors.New("send VNC wheel event")
 		}
-		return s.conn.PointerEvent(buttons.None, mouseX, mouseY)
+		if C.govnc_send_pointer(s.client, C.int(mouseX), C.int(mouseY), 0) == 0 {
+			return errors.New("release VNC wheel event")
+		}
+		return nil
+	})
+}
+
+func (s *Session) sendPointer(x int, y int, mask int) error {
+	return s.withInputLock(func() error {
+		if C.govnc_send_pointer(s.client, C.int(x), C.int(y), C.int(mask)) == 0 {
+			return fmt.Errorf("send VNC pointer event: %d,%d", x, y)
+		}
+		return nil
 	})
 }
 
@@ -367,8 +362,13 @@ func (s *Session) Done() <-chan struct{} {
 
 func (s *Session) Close() error {
 	s.closeOnce.Do(func() {
-		_ = s.conn.Close()
-		<-s.done
+		if s.client != nil {
+			C.govnc_close_client(s.client)
+			<-s.done
+			C.govnc_cleanup_client(s.client)
+			s.client = nil
+		}
+		s.handle.Delete()
 	})
 	return s.Err()
 }
@@ -403,51 +403,51 @@ func (s *Session) setDisconnected() {
 	}
 }
 
-func validatePointerPosition(x int, y int) (uint16, uint16, error) {
+func validatePointerPosition(x int, y int) (int, int, error) {
 	if x < 0 || y < 0 || x > int(^uint16(0)) || y > int(^uint16(0)) {
 		return 0, 0, fmt.Errorf("pointer position out of range: %d,%d", x, y)
 	}
-	return uint16(x), uint16(y), nil
+	return x, y, nil
 }
 
-func buttonMask(button string) (buttons.Button, error) {
+func buttonMask(button string) (int, error) {
 	switch strings.ToLower(strings.TrimSpace(button)) {
 	case "left", "button1", "1":
-		return buttons.Left, nil
+		return 1, nil
 	case "middle", "button2", "2":
-		return buttons.Middle, nil
+		return 2, nil
 	case "right", "button3", "3":
-		return buttons.Right, nil
+		return 4, nil
 	case "back", "button8", "8":
-		return buttons.Eight, nil
+		return 128, nil
 	case "forward", "button9", "9":
-		return buttons.Seven, nil
+		return 256, nil
 	default:
-		return buttons.None, fmt.Errorf("unsupported mouse button: %s", button)
+		return 0, fmt.Errorf("unsupported mouse button: %s", button)
 	}
 }
 
-func wheelMask(delta int, horizontal bool) buttons.Button {
+func wheelMask(delta int, horizontal bool) int {
 	if horizontal {
 		if delta < 0 {
-			return buttons.Six
+			return 32
 		}
-		return buttons.Seven
+		return 64
 	}
 	if delta < 0 {
-		return buttons.Five
+		return 16
 	}
-	return buttons.Four
+	return 8
 }
 
-func keyFromName(name string) (keys.Key, error) {
+func keyFromName(name string) (uint32, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
 		return 0, errors.New("key name is required")
 	}
 	trimmedRunes := []rune(trimmed)
 	if len(trimmedRunes) == 1 {
-		if key, ok := keys.FromRune(trimmedRunes[0]); ok {
+		if key := keysymForRune(trimmedRunes[0]); key != 0 {
 			return key, nil
 		}
 	}
@@ -458,44 +458,88 @@ func keyFromName(name string) (keys.Key, error) {
 	return 0, fmt.Errorf("unsupported key name: %s", name)
 }
 
-var namedKeys = map[string]keys.Key{
-	"alt":       keys.AltLeft,
-	"backspace": keys.BackSpace,
-	"capslock":  keys.CapsLock,
-	"ctrl":      keys.ControlLeft,
-	"control":   keys.ControlLeft,
-	"delete":    keys.Delete,
-	"down":      keys.Down,
-	"end":       keys.End,
-	"enter":     keys.Return,
-	"esc":       keys.Escape,
-	"escape":    keys.Escape,
-	"f1":        keys.F1,
-	"f2":        keys.F2,
-	"f3":        keys.F3,
-	"f4":        keys.F4,
-	"f5":        keys.F5,
-	"f6":        keys.F6,
-	"f7":        keys.F7,
-	"f8":        keys.F8,
-	"f9":        keys.F9,
-	"f10":       keys.F10,
-	"f11":       keys.F11,
-	"f12":       keys.F12,
-	"home":      keys.Home,
-	"insert":    keys.Insert,
-	"left":      keys.Left,
-	"pagedown":  keys.PageDown,
-	"page_down": keys.PageDown,
-	"pageup":    keys.PageUp,
-	"page_up":   keys.PageUp,
-	"return":    keys.Return,
-	"right":     keys.Right,
-	"shift":     keys.ShiftLeft,
-	"space":     keys.Space,
-	"super":     keys.SuperLeft,
-	"tab":       keys.Tab,
-	"up":        keys.Up,
-	"win":       keys.SuperLeft,
-	"windows":   keys.SuperLeft,
+func keysymForRune(r rune) uint32 {
+	switch r {
+	case '\n', '\r':
+		return namedKeys["enter"]
+	case '\t':
+		return namedKeys["tab"]
+	case '\b':
+		return namedKeys["backspace"]
+	}
+	if r >= 0x20 && r <= 0xff {
+		return uint32(r)
+	}
+	return 0
+}
+
+func boolToCInt(value bool) C.int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+var namedKeys = map[string]uint32{
+	"alt":       0xffe9,
+	"backspace": 0xff08,
+	"capslock":  0xffe5,
+	"ctrl":      0xffe3,
+	"control":   0xffe3,
+	"delete":    0xffff,
+	"down":      0xff54,
+	"end":       0xff57,
+	"enter":     0xff0d,
+	"esc":       0xff1b,
+	"escape":    0xff1b,
+	"f1":        0xffbe,
+	"f2":        0xffbf,
+	"f3":        0xffc0,
+	"f4":        0xffc1,
+	"f5":        0xffc2,
+	"f6":        0xffc3,
+	"f7":        0xffc4,
+	"f8":        0xffc5,
+	"f9":        0xffc6,
+	"f10":       0xffc7,
+	"f11":       0xffc8,
+	"f12":       0xffc9,
+	"home":      0xff50,
+	"insert":    0xff63,
+	"left":      0xff51,
+	"pagedown":  0xff56,
+	"page_down": 0xff56,
+	"pageup":    0xff55,
+	"page_up":   0xff55,
+	"return":    0xff0d,
+	"right":     0xff53,
+	"shift":     0xffe1,
+	"space":     0x20,
+	"super":     0xffeb,
+	"tab":       0xff09,
+	"up":        0xff52,
+	"win":       0xffeb,
+	"windows":   0xffeb,
+}
+
+//export goVNCFramebuffer
+func goVNCFramebuffer(handle C.uintptr_t, data *C.uint8_t, width C.int, height C.int, bytesPerPixel C.int, bigEndian C.int, redShift C.int, greenShift C.int, blueShift C.int, redMax C.int, greenMax C.int, blueMax C.int) {
+	sessionHandle := cgo.Handle(handle)
+	session, ok := sessionHandle.Value().(*Session)
+	if !ok {
+		return
+	}
+	session.updateFramebuffer(
+		unsafe.Pointer(data),
+		int(width),
+		int(height),
+		int(bytesPerPixel),
+		bigEndian != 0,
+		int(redShift),
+		int(greenShift),
+		int(blueShift),
+		int(redMax),
+		int(greenMax),
+		int(blueMax),
+	)
 }
