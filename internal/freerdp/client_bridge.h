@@ -8,7 +8,9 @@
 #include <freerdp/client.h>
 #include <freerdp/constants.h>
 #include <freerdp/freerdp.h>
+#include <freerdp/client/rdpgfx.h>
 #include <freerdp/gdi/gdi.h>
+#include <freerdp/gdi/gfx.h>
 #include <freerdp/input.h>
 #include <freerdp/settings.h>
 #include <winpr/input.h>
@@ -28,6 +30,8 @@ typedef struct {
 	UINT32 snapshot_stride;
 	BOOL snapshot_ready;
 	BOOL connected;
+	RdpgfxClientContext* gfx;
+	BOOL gfx_gdi_initialized;
 	char last_error[512];
 } gofreerdp_context;
 
