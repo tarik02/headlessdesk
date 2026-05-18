@@ -1,5 +1,5 @@
 {
-  description = "Nix build for the libfreerdp Go proof of concept";
+  description = "Nix build for headlessrdp";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -27,7 +27,7 @@
       in
       {
         packages.default = (pkgs.buildGoModule.override { go = go; }) {
-          pname = "libfreerdp-golang-poc";
+          pname = "headlessrdp";
           version = "0.1.0";
 
           src = ./.;
@@ -53,7 +53,7 @@
           ];
 
           meta = with pkgs.lib; {
-            description = "Headless FreeRDP-backed screenshot and control server written in Go";
+            description = "Headless remote desktop screenshot and control server written in Go";
             license = licenses.mit;
             mainProgram = "server";
             platforms = platforms.linux;

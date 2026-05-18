@@ -2,10 +2,9 @@
 
 Minimal Go remote-desktop control server.
 
-The current implementation has a production RDP backend backed by FreeRDP and a
-protocol-neutral seam for a planned VNC/RFB backend. The HTTP, REST, and MCP
-layers talk only to the shared desktop abstraction, so adding the concrete VNC
-client does not require API changes.
+The current implementation supports RDP through FreeRDP and VNC/RFB through
+LibVNCClient. The HTTP, REST, and MCP layers use a shared protocol-neutral
+desktop abstraction.
 
 ## What this POC does
 
@@ -16,7 +15,8 @@ HTTP and MCP.
 Supported protocol status:
 
 - `rdp`: implemented through `internal/freerdp`.
-- `vnc`: implemented through `github.com/kward/go-vnc` with raw framebuffer updates, screenshots, keyboard, pointer, and wheel input.
+- `vnc`: implemented through LibVNCClient with framebuffer updates, screenshots,
+  keyboard, pointer, and wheel input.
 
 ## Requirements
 
@@ -29,6 +29,10 @@ This POC currently expects the pkg-config package names used by FreeRDP 3:
 
 On Debian or Ubuntu this usually means installing FreeRDP 3 development packages
 or building FreeRDP 3 yourself.
+
+For VNC, you also need LibVNCClient development files visible to `pkg-config`:
+
+- `libvncclient`
 
 ## Configuration model
 
@@ -90,7 +94,7 @@ go run ./cmd/server serve \
   --insecure
 ```
 
-Plan a VNC-backed invocation using the same public APIs:
+Run a VNC-backed server using the same public APIs:
 
 ```bash
 go run ./cmd/server serve \
@@ -203,28 +207,28 @@ The HTTP and stdio MCP transports expose the same tool set:
 
 ## VNC backend
 
-The VNC backend uses `github.com/kward/go-vnc` for RFB negotiation, server-message parsing, framebuffer update requests, and keyboard/pointer input. The first implementation deliberately requests raw rectangles plus desktop-size pseudo-encoding so screenshot correctness is simple to verify before adding compressed encodings.
+The VNC backend uses LibVNCClient for RFB negotiation, server-message parsing,
+framebuffer update requests, and keyboard/pointer input.
 
 Current VNC behavior:
 
 - connects to `session.host:session.port`, defaulting to port `5900`;
 - uses `session.password` for VNC password authentication while still allowing servers that offer no-auth;
 - maps `vnc.shared` to the RFB shared/exclusive connection flag;
-- maintains an in-memory framebuffer from raw `FramebufferUpdate` rectangles;
+- maintains an in-memory framebuffer from server framebuffer updates;
 - sends key events with X11/RFB keysyms, including common named keys and Latin-1 text input;
 - sends pointer movement, button, and wheel events;
 - rejects `vnc.view_only=true` because the public control APIs require input support.
 
-Still planned for VNC:
+Possible VNC improvements:
 
 1. Add fake RFB server tests that cover handshake, framebuffer, and input-event paths without requiring an external VNC service.
-2. Add optional non-raw encodings such as copyrect, hextile, or tight once baseline raw-mode behavior is validated against target servers.
-3. Add richer status metadata for the negotiated RFB protocol/security type if the upstream library exposes it.
+2. Add richer status metadata for the negotiated RFB protocol/security type if LibVNCClient exposes it.
 
 ## Notes
 
 - `--insecure` accepts unknown or changed certificates where the selected
   protocol supports certificate validation.
 - Without `--insecure`, certificate validation stays strict for RDP.
-- The persistent session is intentionally minimal: it connects once, keeps the
-  latest framebuffer, and exposes basic keyboard and mouse input over HTTP/MCP.
+- The persistent session connects once, keeps the latest framebuffer, and exposes
+  basic keyboard and mouse input over HTTP/MCP.
