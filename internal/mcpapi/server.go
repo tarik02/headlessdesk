@@ -13,13 +13,13 @@ import (
 
 func NewServer(service *control.Service) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "rdp-control",
+		Name:    "remote-desktop-control",
 		Version: "1.0.0",
 	}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "session_status",
-		Description: "Return the current RDP session status and framebuffer metadata",
+		Description: "Return the current remote desktop session status and framebuffer metadata",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, control.Status, error) {
 		status := service.Status()
 		return &mcp.CallToolResult{
@@ -50,7 +50,7 @@ func NewServer(service *control.Service) *mcp.Server {
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "screenshot",
-		Description: "Capture the latest RDP framebuffer as a PNG image, optionally cropped",
+		Description: "Capture the latest remote desktop framebuffer as a PNG image, optionally cropped",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args screenshotArgs) (*mcp.CallToolResult, any, error) {
 		var crop *control.Crop
 		if args.Crop != nil {

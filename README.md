@@ -1,48 +1,88 @@
-# libfreerdp-golang-poc
+# headlessrdp
 
-Minimal Go-to-FreeRDP proof of concept.
+Minimal Go remote-desktop control server.
 
-It now does three things:
-
-- initializes a Go module,
-- exposes a small binding in `internal/freerdp`,
-- keeps a persistent RDP session open and exposes health, REST control, and MCP interfaces through `cmd/server`.
+The current implementation has a production RDP backend backed by FreeRDP and a
+protocol-neutral seam for a planned VNC/RFB backend. The HTTP, REST, and MCP
+layers talk only to the shared desktop abstraction, so adding the concrete VNC
+client does not require API changes.
 
 ## What this POC does
 
-The binding has two modes:
+The server keeps a headless remote desktop session alive, copies the latest
+decoded framebuffer into memory, and exposes that image and input controls over
+HTTP and MCP.
 
-- auth-only probing through `internal/freerdp.Probe`,
-- persistent session capture with `cmd/server serve`,
-- MCP tool access through `cmd/server serve` or `cmd/server stdio-mcp`.
+Supported protocol status:
 
-The auth-only probe does not open a window or render a desktop. A successful probe means:
-
-- TCP/TLS/NLA negotiation completed,
-- credentials were accepted,
-- FreeRDP reported the connection attempt as successful.
-
-The persistent server keeps a headless RDP session alive, copies the latest decoded framebuffer into memory, and exposes that image through an HTTP endpoint.
+- `rdp`: implemented through `internal/freerdp`.
+- `vnc`: implemented through `github.com/kward/go-vnc` with raw framebuffer updates, screenshots, keyboard, pointer, and wheel input.
 
 ## Requirements
 
-You need FreeRDP development files visible to `pkg-config`.
+For RDP, you need FreeRDP development files visible to `pkg-config`.
 This POC currently expects the pkg-config package names used by FreeRDP 3:
 
 - `freerdp3`
+- `freerdp-client3`
 - `winpr3`
 
-On Debian or Ubuntu this usually means installing FreeRDP 3 development packages or building FreeRDP 3 yourself.
+On Debian or Ubuntu this usually means installing FreeRDP 3 development packages
+or building FreeRDP 3 yourself.
+
+## Configuration model
+
+The CLI and environment variables now use protocol-neutral session settings plus
+protocol-specific sections. There is no backward compatibility with the old
+`RDP_*` environment variable layout.
+
+Configuration keys:
+
+```yaml
+server:
+  listen_addr: ":8080"
+  mcp_path: "/mcp"
+  enable_http_api: true
+  enable_mcp_api: true
+session:
+  protocol: "rdp" # rdp or vnc
+  host: "127.0.0.1"
+  port: 0         # 0 means protocol default: 3389 for RDP, 5900 for VNC
+  username: "gmtest"
+  password: "gmtest"
+  width: 1280
+  height: 720
+  insecure: true
+rdp:
+  domain: ""
+  keyboard_layout: 1033
+  graphics_mode: "auto"
+vnc:
+  shared: true
+  view_only: false
+```
+
+Environment variables use the `HEADLESSRDP_` prefix and flatten nested keys with
+underscores, for example:
+
+- `HEADLESSRDP_SESSION_PROTOCOL=rdp`
+- `HEADLESSRDP_SESSION_HOST=127.0.0.1`
+- `HEADLESSRDP_SESSION_USERNAME=gmtest`
+- `HEADLESSRDP_SESSION_PASSWORD=gmtest`
+- `HEADLESSRDP_SERVER_LISTEN_ADDR=:8080`
+- `HEADLESSRDP_RDP_GRAPHICS_MODE=bitmap`
+- `HEADLESSRDP_VNC_SHARED=true`
 
 ## HTTP server
 
-Run:
+Run an RDP-backed server:
 
 ```bash
 go run ./cmd/server serve \
   --listen-addr :8080 \
-  --host 127.0.0.1 \
-  --port 3391 \
+  --protocol rdp \
+  --remote-host 127.0.0.1 \
+  --remote-port 3391 \
   --username gmtest \
   --password gmtest \
   --width 1280 \
@@ -50,15 +90,23 @@ go run ./cmd/server serve \
   --insecure
 ```
 
-The server command uses Cobra and Viper for parsing. You can provide settings through:
+Plan a VNC-backed invocation using the same public APIs:
 
-- command-line flags such as `--host` and `--listen-addr`
-- environment variables such as `RDP_HOST`, `RDP_LISTEN_ADDR`, `RDP_USERNAME`, and `RDP_PASSWORD`
-- `--config /path/to/server.yaml` with YAML, TOML, or JSON
+```bash
+go run ./cmd/server serve \
+  --listen-addr :8080 \
+  --protocol vnc \
+  --remote-host 127.0.0.1 \
+  --remote-port 5900 \
+  --password secret \
+  --width 1280 \
+  --height 720 \
+  --vnc-shared
+```
 
 The `serve` subcommand always mounts:
 
-- `GET /healthz` for session state and framebuffer size
+- `GET /healthz` for session state and framebuffer size.
 
 The REST API can be enabled or disabled with `--enable-http-api`.
 When enabled, it mounts:
@@ -80,17 +128,20 @@ Example health response:
 
 ```json
 {
+  "protocol": "rdp",
   "connected": true,
   "active": true,
   "ready": true,
   "state": "CONNECTION_STATE_ACTIVE",
-  "freerdp": "3.24.2",
+  "version": "3.24.2",
   "width": 1280,
   "height": 720
 }
 ```
 
-If the connection has started but no full frame has been decoded yet, `/healthz` can briefly report `CONNECTION_STATE_NEGO` or `ready=false`, and `/screenshot` returns `503` until a snapshot becomes available.
+If the connection has started but no full frame has been decoded yet, `/healthz`
+can briefly report a negotiation state or `ready=false`, and `/screenshot`
+returns `503` until a snapshot becomes available.
 
 Example input requests:
 
@@ -121,28 +172,15 @@ curl -X POST http://127.0.0.1:8080/screenshot \
   --output cropped.png
 ```
 
-Example toggles:
-
-```bash
-go run ./cmd/server serve \
-  --listen-addr :8080 \
-  --enable-http-api=false \
-  --enable-mcp-api=true \
-  --host 127.0.0.1 \
-  --port 3391 \
-  --username gmtest \
-  --password gmtest \
-  --insecure
-```
-
 ## stdio MCP server
 
 Run:
 
 ```bash
 go run ./cmd/server stdio-mcp \
-  --host 127.0.0.1 \
-  --port 3391 \
+  --protocol rdp \
+  --remote-host 127.0.0.1 \
+  --remote-port 3391 \
   --username gmtest \
   --password gmtest \
   --width 1280 \
@@ -163,9 +201,30 @@ The HTTP and stdio MCP transports expose the same tool set:
 - `type`
 - `wait`
 
+## VNC backend
+
+The VNC backend uses `github.com/kward/go-vnc` for RFB negotiation, server-message parsing, framebuffer update requests, and keyboard/pointer input. The first implementation deliberately requests raw rectangles plus desktop-size pseudo-encoding so screenshot correctness is simple to verify before adding compressed encodings.
+
+Current VNC behavior:
+
+- connects to `session.host:session.port`, defaulting to port `5900`;
+- uses `session.password` for VNC password authentication while still allowing servers that offer no-auth;
+- maps `vnc.shared` to the RFB shared/exclusive connection flag;
+- maintains an in-memory framebuffer from raw `FramebufferUpdate` rectangles;
+- sends key events with X11/RFB keysyms, including common named keys and Latin-1 text input;
+- sends pointer movement, button, and wheel events;
+- rejects `vnc.view_only=true` because the public control APIs require input support.
+
+Still planned for VNC:
+
+1. Add fake RFB server tests that cover handshake, framebuffer, and input-event paths without requiring an external VNC service.
+2. Add optional non-raw encodings such as copyrect, hextile, or tight once baseline raw-mode behavior is validated against target servers.
+3. Add richer status metadata for the negotiated RFB protocol/security type if the upstream library exposes it.
+
 ## Notes
 
-- `--insecure` accepts unknown or changed certificates through the FreeRDP certificate callbacks.
-- without `--insecure`, certificate validation stays strict.
-- the persistent session is intentionally minimal: it connects once, keeps the latest framebuffer, and exposes basic keyboard and mouse input over HTTP.
-- this is intentionally small and not yet a general-purpose wrapper.
+- `--insecure` accepts unknown or changed certificates where the selected
+  protocol supports certificate validation.
+- Without `--insecure`, certificate validation stays strict for RDP.
+- The persistent session is intentionally minimal: it connects once, keeps the
+  latest framebuffer, and exposes basic keyboard and mouse input over HTTP/MCP.

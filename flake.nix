@@ -42,6 +42,7 @@
 
           buildInputs = [
             freerdp
+            pkgs.libvncserver
           ];
 
           env.CGO_ENABLED = "1";
@@ -70,6 +71,7 @@
             pkgs.gopls
             pkgs.pkg-config
             freerdp
+            pkgs.libvncserver
           ];
 
           env.CGO_ENABLED = "1";
