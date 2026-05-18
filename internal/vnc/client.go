@@ -21,7 +21,7 @@ import (
 	"time"
 	"unsafe"
 
-	"libfreerdp-golang-poc/internal/desktop"
+	"headlessdesk/internal/desktop"
 )
 
 // Config contains protocol-specific options for the VNC backend.

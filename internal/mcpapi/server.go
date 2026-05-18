@@ -8,12 +8,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"libfreerdp-golang-poc/internal/control"
+	"headlessdesk/internal/control"
 )
 
 func NewServer(service *control.Service) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "remote-desktop-control",
+		Name:    "headlessdesk",
 		Version: "1.0.0",
 	}, nil)
 

@@ -17,13 +17,13 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"libfreerdp-golang-poc/internal/control"
-	"libfreerdp-golang-poc/internal/desktop"
-	"libfreerdp-golang-poc/internal/freerdp"
-	"libfreerdp-golang-poc/internal/healthapi"
-	"libfreerdp-golang-poc/internal/httpapi"
-	"libfreerdp-golang-poc/internal/mcpapi"
-	"libfreerdp-golang-poc/internal/vnc"
+	"headlessdesk/internal/control"
+	"headlessdesk/internal/desktop"
+	"headlessdesk/internal/freerdp"
+	"headlessdesk/internal/healthapi"
+	"headlessdesk/internal/httpapi"
+	"headlessdesk/internal/mcpapi"
+	"headlessdesk/internal/vnc"
 )
 
 type config struct {
@@ -67,7 +67,7 @@ func New() *cobra.Command {
 	v := viper.New()
 
 	cmd := &cobra.Command{
-		Use:           "server",
+		Use:           "headlessdesk",
 		Short:         "Remote desktop screenshot and control server",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -174,7 +174,7 @@ func setDefaults(v *viper.Viper) {
 }
 
 func loadConfig(v *viper.Viper, configPath string) (config, error) {
-	v.SetEnvPrefix("HEADLESSRDP")
+	v.SetEnvPrefix("HEADLESSDESK")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.AutomaticEnv()
 

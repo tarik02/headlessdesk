@@ -1,5 +1,5 @@
 {
-  description = "Nix build for headlessrdp";
+  description = "Nix build for headlessdesk";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -27,12 +27,12 @@
       in
       {
         packages.default = (pkgs.buildGoModule.override { go = go; }) {
-          pname = "headlessrdp";
+          pname = "headlessdesk";
           version = "0.1.0";
 
           src = ./.;
           modRoot = ".";
-          subPackages = [ "cmd/server" ];
+          subPackages = [ "cmd/headlessdesk" ];
 
           vendorHash = "sha256-icTfrV7YRkUOVqbDnWy+tb8q4GU7NwPK0cY96Y0RdPg=";
 
@@ -55,14 +55,14 @@
           meta = with pkgs.lib; {
             description = "Headless remote desktop screenshot and control server written in Go";
             license = licenses.mit;
-            mainProgram = "server";
+            mainProgram = "headlessdesk";
             platforms = platforms.linux;
           };
         };
 
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/server";
+          program = "${self.packages.${system}.default}/bin/headlessdesk";
         };
 
         devShells.default = pkgs.mkShell {
