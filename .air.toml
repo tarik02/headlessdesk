@@ -2,15 +2,15 @@ root = "."
 tmp_dir = "./tmp"
 
 [build]
-bin = "./tmp/server"
-cmd = "go build -o ./tmp/server ./cmd/server"
+bin = "./tmp/headlessdesk"
+cmd = "go build -o ./tmp/headlessdesk ./cmd/headlessdesk"
 delay = 500
 exclude_dir = ["tmp", "vendor", ".git"]
 exclude_file = []
 exclude_regex = ["_test\\.go"]
 exclude_unchanged = true
 follow_symlink = false
-full_bin = "./tmp/server serve --config ./server.yaml"
+full_bin = "./tmp/headlessdesk serve --config ./server.yaml"
 include_dir = ["cmd", "internal"]
 include_ext = ["go", "c", "h", "yaml", "yml", "toml"]
 kill_delay = "0s"

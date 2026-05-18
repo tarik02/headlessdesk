@@ -1,42 +1,79 @@
-# headlessrdp
+# headlessdesk
 
-Minimal Go remote-desktop control server.
+Minimal headless remote-desktop control server.
 
-The current implementation has a production RDP backend backed by FreeRDP and a
-protocol-neutral seam for a planned VNC/RFB backend. The HTTP, REST, and MCP
-layers talk only to the shared desktop abstraction, so adding the concrete VNC
-client does not require API changes.
+`headlessdesk` connects to an RDP or VNC desktop, keeps a framebuffer in memory,
+and exposes screenshots plus keyboard/mouse input through HTTP and MCP.
 
-## What this POC does
+## Installation
 
-The server keeps a headless remote desktop session alive, copies the latest
-decoded framebuffer into memory, and exposes that image and input controls over
-HTTP and MCP.
+Build with Nix:
 
-Supported protocol status:
+```bash
+nix build .#
+```
 
-- `rdp`: implemented through `internal/freerdp`.
-- `vnc`: implemented through `github.com/kward/go-vnc` with raw framebuffer updates, screenshots, keyboard, pointer, and wheel input.
+Run from the flake:
 
-## Requirements
+```bash
+nix run .# -- serve --config ./server.yaml
+```
 
-For RDP, you need FreeRDP development files visible to `pkg-config`.
-This POC currently expects the pkg-config package names used by FreeRDP 3:
+Or build with Go when FreeRDP and LibVNCClient development files are available
+through `pkg-config`:
 
-- `freerdp3`
-- `freerdp-client3`
-- `winpr3`
+```bash
+go build ./cmd/headlessdesk
+```
 
-On Debian or Ubuntu this usually means installing FreeRDP 3 development packages
-or building FreeRDP 3 yourself.
+## Usage
 
-## Configuration model
+Run an RDP-backed server:
 
-The CLI and environment variables now use protocol-neutral session settings plus
-protocol-specific sections. There is no backward compatibility with the old
-`RDP_*` environment variable layout.
+```bash
+headlessdesk serve \
+  --listen-addr :8080 \
+  --protocol rdp \
+  --remote-host 127.0.0.1 \
+  --remote-port 3391 \
+  --username gmtest \
+  --password gmtest \
+  --width 1280 \
+  --height 720 \
+  --insecure
+```
 
-Configuration keys:
+Run a VNC-backed server:
+
+```bash
+headlessdesk serve \
+  --listen-addr :8080 \
+  --protocol vnc \
+  --remote-host 127.0.0.1 \
+  --remote-port 5900 \
+  --password secret \
+  --width 1280 \
+  --height 720 \
+  --vnc-shared
+```
+
+Run stdio MCP:
+
+```bash
+headlessdesk stdio-mcp \
+  --protocol rdp \
+  --remote-host 127.0.0.1 \
+  --remote-port 3391 \
+  --username gmtest \
+  --password gmtest \
+  --width 1280 \
+  --height 720 \
+  --insecure
+```
+
+## Configuration
+
+Example `server.yaml`:
 
 ```yaml
 server:
@@ -45,9 +82,9 @@ server:
   enable_http_api: true
   enable_mcp_api: true
 session:
-  protocol: "rdp" # rdp or vnc
+  protocol: "rdp"
   host: "127.0.0.1"
-  port: 0         # 0 means protocol default: 3389 for RDP, 5900 for VNC
+  port: 3391
   username: "gmtest"
   password: "gmtest"
   width: 1280
@@ -62,109 +99,26 @@ vnc:
   view_only: false
 ```
 
-Environment variables use the `HEADLESSRDP_` prefix and flatten nested keys with
-underscores, for example:
-
-- `HEADLESSRDP_SESSION_PROTOCOL=rdp`
-- `HEADLESSRDP_SESSION_HOST=127.0.0.1`
-- `HEADLESSRDP_SESSION_USERNAME=gmtest`
-- `HEADLESSRDP_SESSION_PASSWORD=gmtest`
-- `HEADLESSRDP_SERVER_LISTEN_ADDR=:8080`
-- `HEADLESSRDP_RDP_GRAPHICS_MODE=bitmap`
-- `HEADLESSRDP_VNC_SHARED=true`
-
-## HTTP server
-
-Run an RDP-backed server:
+Environment variables use the `HEADLESSDESK_` prefix:
 
 ```bash
-go run ./cmd/server serve \
-  --listen-addr :8080 \
-  --protocol rdp \
-  --remote-host 127.0.0.1 \
-  --remote-port 3391 \
-  --username gmtest \
-  --password gmtest \
-  --width 1280 \
-  --height 720 \
-  --insecure
+HEADLESSDESK_SESSION_PROTOCOL=rdp
+HEADLESSDESK_SESSION_HOST=127.0.0.1
+HEADLESSDESK_SESSION_USERNAME=gmtest
+HEADLESSDESK_SESSION_PASSWORD=gmtest
+HEADLESSDESK_SERVER_LISTEN_ADDR=:8080
 ```
 
-Plan a VNC-backed invocation using the same public APIs:
-
-```bash
-go run ./cmd/server serve \
-  --listen-addr :8080 \
-  --protocol vnc \
-  --remote-host 127.0.0.1 \
-  --remote-port 5900 \
-  --password secret \
-  --width 1280 \
-  --height 720 \
-  --vnc-shared
-```
-
-The `serve` subcommand always mounts:
-
-- `GET /healthz` for session state and framebuffer size.
-
-The REST API can be enabled or disabled with `--enable-http-api`.
-When enabled, it mounts:
-
-- `POST /screenshot` returns the latest framebuffer as `image/png`, with optional cropping.
-- `POST /click` moves to a coordinate and clicks a mouse button.
-- `POST /double_click` moves to a coordinate and double clicks a mouse button.
-- `POST /drag` drags with the left mouse button along a path of points.
-- `POST /move` moves the remote pointer to an absolute position.
-- `POST /scroll` sends horizontal and/or vertical wheel events.
-- `POST /keypress` presses and releases a named key.
-- `POST /type` types text into the remote session.
-- `POST /wait` sleeps for a given number of milliseconds.
-
-The MCP streamable HTTP API can be enabled or disabled with `--enable-mcp-api`.
-When enabled, it mounts at `--mcp-path`, which defaults to `/mcp`.
-
-Example health response:
-
-```json
-{
-  "protocol": "rdp",
-  "connected": true,
-  "active": true,
-  "ready": true,
-  "state": "CONNECTION_STATE_ACTIVE",
-  "version": "3.24.2",
-  "width": 1280,
-  "height": 720
-}
-```
-
-If the connection has started but no full frame has been decoded yet, `/healthz`
-can briefly report a negotiation state or `ready=false`, and `/screenshot`
-returns `503` until a snapshot becomes available.
-
-Example input requests:
+## HTTP Examples
 
 ```bash
 curl -X POST http://127.0.0.1:8080/type \
   -H 'Content-Type: application/json' \
   -d '{"text":"hello from http"}'
 
-curl -X POST http://127.0.0.1:8080/keypress \
-  -H 'Content-Type: application/json' \
-  -d '{"key":"enter"}'
-
-curl -X POST http://127.0.0.1:8080/move \
-  -H 'Content-Type: application/json' \
-  -d '{"x":640,"y":360}'
-
 curl -X POST http://127.0.0.1:8080/click \
   -H 'Content-Type: application/json' \
   -d '{"x":640,"y":360,"button":"left"}'
-
-curl -X POST http://127.0.0.1:8080/scroll \
-  -H 'Content-Type: application/json' \
-  -d '{"x":640,"y":360,"scrollY":120}'
 
 curl -X POST http://127.0.0.1:8080/screenshot \
   -H 'Content-Type: application/json' \
@@ -172,59 +126,8 @@ curl -X POST http://127.0.0.1:8080/screenshot \
   --output cropped.png
 ```
 
-## stdio MCP server
+More details:
 
-Run:
-
-```bash
-go run ./cmd/server stdio-mcp \
-  --protocol rdp \
-  --remote-host 127.0.0.1 \
-  --remote-port 3391 \
-  --username gmtest \
-  --password gmtest \
-  --width 1280 \
-  --height 720 \
-  --insecure
-```
-
-The HTTP and stdio MCP transports expose the same tool set:
-
-- `session_status`
-- `screenshot`
-- `click`
-- `double_click`
-- `drag`
-- `move`
-- `scroll`
-- `keypress`
-- `type`
-- `wait`
-
-## VNC backend
-
-The VNC backend uses `github.com/kward/go-vnc` for RFB negotiation, server-message parsing, framebuffer update requests, and keyboard/pointer input. The first implementation deliberately requests raw rectangles plus desktop-size pseudo-encoding so screenshot correctness is simple to verify before adding compressed encodings.
-
-Current VNC behavior:
-
-- connects to `session.host:session.port`, defaulting to port `5900`;
-- uses `session.password` for VNC password authentication while still allowing servers that offer no-auth;
-- maps `vnc.shared` to the RFB shared/exclusive connection flag;
-- maintains an in-memory framebuffer from raw `FramebufferUpdate` rectangles;
-- sends key events with X11/RFB keysyms, including common named keys and Latin-1 text input;
-- sends pointer movement, button, and wheel events;
-- rejects `vnc.view_only=true` because the public control APIs require input support.
-
-Still planned for VNC:
-
-1. Add fake RFB server tests that cover handshake, framebuffer, and input-event paths without requiring an external VNC service.
-2. Add optional non-raw encodings such as copyrect, hextile, or tight once baseline raw-mode behavior is validated against target servers.
-3. Add richer status metadata for the negotiated RFB protocol/security type if the upstream library exposes it.
-
-## Notes
-
-- `--insecure` accepts unknown or changed certificates where the selected
-  protocol supports certificate validation.
-- Without `--insecure`, certificate validation stays strict for RDP.
-- The persistent session is intentionally minimal: it connects once, keeps the
-  latest framebuffer, and exposes basic keyboard and mouse input over HTTP/MCP.
+- [configuration](docs/configuration.md)
+- [http and mcp api](docs/api.md)
+- [architecture and backends](docs/architecture.md)

@@ -21,7 +21,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
-	"libfreerdp-golang-poc/internal/desktop"
+	"headlessdesk/internal/desktop"
 )
 
 type Config struct {

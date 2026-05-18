@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"libfreerdp-golang-poc/internal/desktop"
+	"headlessdesk/internal/desktop"
 )
 
 type Status = desktop.Status

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"libfreerdp-golang-poc/internal/control"
+	"headlessdesk/internal/control"
 )
 
 type Handler struct {

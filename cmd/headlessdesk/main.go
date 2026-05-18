@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"libfreerdp-golang-poc/internal/servercmd"
+	"headlessdesk/internal/servercmd"
 )
 
 func main() {

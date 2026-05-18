@@ -81,7 +81,7 @@ rfbClient* govnc_new_client(const char* host, int port, const char* password, in
 	rfbClientSetClientData(client, client, strdup(password == NULL ? "" : password));
 
 	int argc = 1;
-	char* argv[] = { "headlessrdp", NULL };
+	char* argv[] = { "headlessdesk", NULL };
 	if (!rfbInitClient(client, &argc, argv)) {
 		govnc_cleanup_client(client);
 		return NULL;

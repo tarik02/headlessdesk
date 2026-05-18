@@ -1,4 +1,4 @@
-module libfreerdp-golang-poc
+module headlessdesk
 
 go 1.25.0
 
