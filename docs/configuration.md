@@ -44,6 +44,36 @@ HEADLESSDESK_RDP_GRAPHICS_MODE=bitmap
 HEADLESSDESK_VNC_SHARED=true
 ```
 
+## RDP Graphics and Acceleration
+
+`rdp.graphics_mode` controls the FreeRDP graphics path:
+
+- `auto`: try AVC/H.264 first, then graphics pipeline without H.264, then bitmap;
+- `avc` or `h264`: require the graphics pipeline with H.264;
+- `gfx` or `graphics`: require the graphics pipeline without H.264;
+- `bitmap` or `legacy`: require classic bitmap updates.
+
+Some RDP servers only support the graphics pipeline. For example, KRDP requires
+graphics pipeline support, so `bitmap` mode will not connect there.
+
+When FreeRDP uses VAAPI for H.264 decode on NVIDIA, the VAAPI driver may need to
+be selected explicitly:
+
+```bash
+LIBVA_DRIVER_NAME=nvidia
+LIBVA_DRIVERS_PATH=/opt/libva-nvidia-driver-git/lib/dri
+NVD_BACKEND=direct
+```
+
+The `LIBVA_DRIVERS_PATH` value is distribution-specific. Use the directory that
+contains `nvidia_drv_video.so` on the target system.
+
+Client-side hardware decode does not imply server-side hardware encode. KRDP can
+still consume significant CPU on NVIDIA systems because its H.264 encoder falls
+back to software encoding when VAAPI encoding is unavailable. Lowering KRDP's
+video quality or adding a systemd CPU quota can limit the impact, but it does
+not remove the underlying software encoding cost.
+
 ## Requirements
 
 For RDP, FreeRDP development files must be visible to `pkg-config`:
