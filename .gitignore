@@ -1,5 +1,6 @@
 # Binaries and build artifacts
 /bin
+/headlessdesk
 *.o
 *.a
 *.so
@@ -45,3 +46,5 @@ Thumbs.db
 # Node/JS artifacts (if tooling gets added later)
 node_modules/
 server.yaml
+
+config.yaml

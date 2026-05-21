@@ -59,14 +59,14 @@ static void govnc_got_framebuffer_update(rfbClient* client, int x, int y, int w,
 	);
 }
 
-rfbClient* govnc_new_client(const char* host, int port, const char* password, int shared, uintptr_t handle) {
+rfbClient* govnc_new_client(const char* host, int port, const char* password, int shared, int view_only, uintptr_t handle) {
 	rfbClient* client = rfbGetClient(8, 3, 4);
 	if (client == NULL) {
 		return NULL;
 	}
 
 	client->appData.shareDesktop = shared ? TRUE : FALSE;
-	client->appData.viewOnly = FALSE;
+	client->appData.viewOnly = view_only ? TRUE : FALSE;
 	client->appData.forceTrueColour = TRUE;
 	client->appData.requestedDepth = 24;
 	client->appData.encodingsString = "tight zrle hextile raw";

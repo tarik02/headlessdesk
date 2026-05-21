@@ -18,5 +18,10 @@ func RegisterRoutes(router gin.IRouter, service *control.Service) {
 }
 
 func (h *Handler) healthz(c *gin.Context) {
-	c.JSON(http.StatusOK, h.service.Status())
+	status := h.service.Status()
+	code := http.StatusOK
+	if !status.InputReady || !status.OutputReady {
+		code = http.StatusServiceUnavailable
+	}
+	c.JSON(code, status)
 }

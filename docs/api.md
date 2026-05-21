@@ -2,7 +2,7 @@
 
 The `serve` subcommand always mounts:
 
-- `GET /healthz` for session state and framebuffer size.
+- `GET /healthz` for backend state and framebuffer size.
 
 The REST API can be enabled or disabled with `--enable-http-api`.
 When enabled, it mounts:
@@ -44,13 +44,29 @@ Example health response:
   "state": "CONNECTION_STATE_ACTIVE",
   "version": "3.24.2",
   "width": 1280,
-  "height": 720
+  "height": 720,
+  "input_backend": "vnc-control",
+  "output_backend": "rdp-visual",
+  "input_protocol": "vnc",
+  "output_protocol": "rdp",
+  "input_ready": true,
+  "output_ready": true,
+  "input_width": 1280,
+  "input_height": 720,
+  "output_width": 1280,
+  "output_height": 720
 }
 ```
 
-If the connection has started but no full frame has been decoded yet, `/healthz`
-can briefly report a negotiation state or `ready=false`, and `/screenshot`
-returns `503` until a snapshot becomes available.
+Top-level health fields describe the output backend. `ready` means the selected
+output backend has a screenshot available. Input and output backend names,
+protocols, ready flags, dimensions, regions, and errors are included as
+additive fields when available. `/healthz` returns `200` only when both
+`input_ready` and `output_ready` are true; otherwise it returns `503`.
+
+Input coordinates are accepted in output screenshot space. Backends that expose
+a different input coordinate space, such as KWin EIS on scaled Wayland desktops,
+can translate those coordinates before sending input.
 
 ## Examples
 

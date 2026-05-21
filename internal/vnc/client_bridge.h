@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <rfb/rfbclient.h>
 
-rfbClient* govnc_new_client(const char* host, int port, const char* password, int shared, uintptr_t handle);
+rfbClient* govnc_new_client(const char* host, int port, const char* password, int shared, int view_only, uintptr_t handle);
 void govnc_close_client(rfbClient* client);
 void govnc_cleanup_client(rfbClient* client);
 rfbBool govnc_wait_for_message(rfbClient* client, unsigned int usecs);

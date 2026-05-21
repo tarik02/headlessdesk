@@ -1,0 +1,15 @@
+[Unit]
+Description=HeadlessDesk remote desktop control server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+Environment=GIN_MODE=release
+ExecStart=%h/.local/bin/headlessdesk serve --config %h/.config/headlessdesk/config.yml
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

@@ -8,12 +8,10 @@ package vnc
 import "C"
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"image"
-	"image/png"
 	"runtime/cgo"
 	"strconv"
 	"strings"
@@ -83,7 +81,11 @@ func StartSession(cfg Config) (desktop.Session, error) {
 	if cfg.Shared {
 		shared = 1
 	}
-	client := C.govnc_new_client(host, C.int(cfg.Port), password, shared, C.uintptr_t(s.handle))
+	viewOnly := C.int(0)
+	if cfg.ViewOnly {
+		viewOnly = 1
+	}
+	client := C.govnc_new_client(host, C.int(cfg.Port), password, shared, viewOnly, C.uintptr_t(s.handle))
 	if client == nil {
 		s.handle.Delete()
 		return nil, fmt.Errorf("connect to VNC server %s:%d", cfg.Host, cfg.Port)
@@ -121,9 +123,6 @@ func validateConfig(cfg Config) error {
 	}
 	if cfg.DesktopHeight == 0 {
 		return errors.New("vnc height must be greater than zero")
-	}
-	if cfg.ViewOnly {
-		return errors.New("vnc view_only cannot satisfy control APIs that require input")
 	}
 	return nil
 }
@@ -244,7 +243,7 @@ func (s *Session) Status() desktop.Status {
 	return status
 }
 
-func (s *Session) ScreenshotPNG() ([]byte, error) {
+func (s *Session) Screenshot() (image.Image, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.frame == nil || !s.status.Ready {
@@ -253,11 +252,7 @@ func (s *Session) ScreenshotPNG() ([]byte, error) {
 
 	clone := image.NewNRGBA(s.frame.Bounds())
 	copy(clone.Pix, s.frame.Pix)
-	var out bytes.Buffer
-	if err := png.Encode(&out, clone); err != nil {
-		return nil, fmt.Errorf("encode screenshot: %w", err)
-	}
-	return out.Bytes(), nil
+	return clone, nil
 }
 
 func (s *Session) SendKey(name string, down bool, repeat bool) error {

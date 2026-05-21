@@ -2,8 +2,10 @@
 
 Minimal headless remote-desktop control server.
 
-`headlessdesk` connects to an RDP or VNC desktop, keeps a framebuffer in memory,
-and exposes screenshots plus keyboard/mouse input through HTTP and MCP.
+`headlessdesk` connects to RDP, VNC, command-backed, or KWin desktop backends, keeps a
+framebuffer in memory when the output backend provides one, and exposes
+screenshots plus keyboard/mouse input through HTTP and MCP.
+Command backends can run locally or over one persistent SSH client connection.
 
 ## Installation
 
@@ -33,7 +35,7 @@ Run an RDP-backed server:
 ```bash
 headlessdesk serve \
   --listen-addr :8080 \
-  --protocol rdp \
+  --backend-type rdp \
   --remote-host 127.0.0.1 \
   --remote-port 3391 \
   --username gmtest \
@@ -48,7 +50,7 @@ Run a VNC-backed server:
 ```bash
 headlessdesk serve \
   --listen-addr :8080 \
-  --protocol vnc \
+  --backend-type vnc \
   --remote-host 127.0.0.1 \
   --remote-port 5900 \
   --password secret \
@@ -61,7 +63,7 @@ Run stdio MCP:
 
 ```bash
 headlessdesk stdio-mcp \
-  --protocol rdp \
+  --backend-type rdp \
   --remote-host 127.0.0.1 \
   --remote-port 3391 \
   --username gmtest \
@@ -73,7 +75,8 @@ headlessdesk stdio-mcp \
 
 ## Configuration
 
-Example `server.yaml`:
+See [config.example.yaml](config.example.yaml) for a commented config with all
+backend options. Minimal `server.yaml`:
 
 ```yaml
 server:
@@ -81,31 +84,58 @@ server:
   mcp_path: "/mcp"
   enable_http_api: true
   enable_mcp_api: true
-session:
-  protocol: "rdp"
-  host: "127.0.0.1"
-  port: 3391
-  username: "gmtest"
-  password: "gmtest"
-  width: 1280
-  height: 720
-  insecure: true
-rdp:
-  domain: ""
-  keyboard_layout: 1033
-  graphics_mode: "auto"
-vnc:
-  shared: true
-  view_only: false
+input: "desktop"
+output: "desktop"
+backends:
+  desktop:
+    type: "rdp"
+    host: "127.0.0.1"
+    port: 3391
+    username: "gmtest"
+    password: "gmtest"
+    width: 1280
+    height: 720
+    insecure: true
+    rdp:
+      domain: ""
+      keyboard_layout: 1033
+      graphics_mode: "auto"
+```
+
+Preset-composed local command backend:
+
+```yaml
+input: "local"
+output: "local"
+backends:
+  local:
+    extends:
+      - preset:command-base
+      - preset:screenshot-spectacle
+      - preset:input-ydotool
+```
+
+KDE/Wayland local setup can use KWin for screenshots and EIS/libei for input:
+
+```yaml
+input: "local-input"
+output: "local-screen"
+backends:
+  local-screen:
+    type: "kwin"
+  local-input:
+    type: "eis"
 ```
 
 Environment variables use the `HEADLESSDESK_` prefix:
 
 ```bash
-HEADLESSDESK_SESSION_PROTOCOL=rdp
-HEADLESSDESK_SESSION_HOST=127.0.0.1
-HEADLESSDESK_SESSION_USERNAME=gmtest
-HEADLESSDESK_SESSION_PASSWORD=gmtest
+HEADLESSDESK_INPUT=default
+HEADLESSDESK_OUTPUT=default
+HEADLESSDESK_BACKENDS_DEFAULT_TYPE=rdp
+HEADLESSDESK_BACKENDS_DEFAULT_HOST=127.0.0.1
+HEADLESSDESK_BACKENDS_DEFAULT_USERNAME=gmtest
+HEADLESSDESK_BACKENDS_DEFAULT_PASSWORD=gmtest
 HEADLESSDESK_SERVER_LISTEN_ADDR=:8080
 ```
 

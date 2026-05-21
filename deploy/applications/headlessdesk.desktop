@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=HeadlessDesk
+Exec={{HOME}}/.local/bin/headlessdesk
+Type=Application
+NoDisplay=true
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2

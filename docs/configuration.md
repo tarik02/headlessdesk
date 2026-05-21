@@ -1,9 +1,13 @@
 # Configuration
 
-The CLI and environment variables use protocol-neutral session settings plus
-protocol-specific sections.
+The CLI and environment variables configure a named backend map. `input`
+selects the backend used for keyboard and mouse actions. `output` selects the
+backend used for screenshots.
 
 ## Config File
+
+See [`config.example.yaml`](../config.example.yaml) for a commented config with
+all backend options.
 
 ```yaml
 server:
@@ -11,23 +15,173 @@ server:
   mcp_path: "/mcp"
   enable_http_api: true
   enable_mcp_api: true
-session:
-  protocol: "rdp" # rdp or vnc
-  host: "127.0.0.1"
-  port: 0         # 0 means protocol default: 3389 for RDP, 5900 for VNC
-  username: "gmtest"
-  password: "gmtest"
-  width: 1280
-  height: 720
-  insecure: true
-rdp:
-  domain: ""
-  keyboard_layout: 1033
-  graphics_mode: "auto"
-vnc:
-  shared: true
-  view_only: false
+
+input: "desktop"
+output: "desktop"
+
+backends:
+  desktop:
+    type: "rdp" # rdp, vnc, command, kwin, or eis
+    host: "127.0.0.1"
+    port: 0 # 0 means backend default: 3389 for RDP, 5900 for VNC
+    username: "gmtest"
+    password: "gmtest"
+    width: 1280
+    height: 720
+    insecure: true
+    rdp:
+      domain: ""
+      keyboard_layout: 1033
+      graphics_mode: "auto"
 ```
+
+KDE/Wayland can use KWin for screenshots and EIS/libei for input:
+
+```yaml
+input: "local-input"
+output: "local-screen"
+
+backends:
+  local-screen:
+    type: "kwin"
+
+  local-input:
+    type: "eis"
+```
+
+KWin restricts `org.kde.KWin.ScreenShot2` callers. The executable needs a
+desktop entry whose `Exec` resolves to the running binary and includes:
+
+```ini
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
+```
+
+Input and output can use different backend instances:
+
+```yaml
+input: "vnc-control"
+output: "rdp-visual"
+
+backends:
+  rdp-visual:
+    type: "rdp"
+    host: "127.0.0.1"
+    port: 3391
+    username: "gmtest"
+    password: "gmtest"
+    width: 1280
+    height: 720
+    insecure: true
+    rdp:
+      graphics_mode: "auto"
+
+  vnc-control:
+    type: "vnc"
+    host: "127.0.0.1"
+    port: 5900
+    password: "secret"
+    width: 1280
+    height: 720
+    vnc:
+      shared: true
+      view_only: false
+```
+
+Backends can extend built-in presets. Presets apply left-to-right, then fields
+on the backend override preset values.
+
+```yaml
+input: "local"
+output: "local"
+
+backends:
+  local:
+    extends:
+      - preset:command-base
+      - preset:screenshot-spectacle
+      - preset:input-ydotool
+```
+
+Built-in presets:
+
+- `preset:command-base`: sets `type: command` and `command.timeout: 30s`.
+- `preset:screenshot-spectacle`: captures KDE/Wayland screenshots with Spectacle.
+- `preset:input-ydotool`: sends mouse, wheel, key, and text events with ydotool.
+
+Command backends execute configured `argv` or `script` templates. `argv` has no
+implicit shell. `script` runs with `sh -s`. Screenshot commands must write PNG
+bytes to stdout. Templates include Sprig plus helpers such as
+`ydotoolButtonEvent`, `ydotoolWheelX`, `ydotoolWheelY`, and `ydotoolKeyEvent`.
+
+```yaml
+input: "shell"
+output: "shell"
+
+backends:
+  shell:
+    type: "command"
+    command:
+      timeout: "30s"
+      screenshot:
+        script: |
+          f=$(mktemp --suffix=.png)
+          trap 'rm -f "$f"' EXIT
+          grim "$f"
+          cat "$f"
+      screenshot_crop:
+        argv: ["grim", "-g", "{{.X}},{{.Y}} {{.W}}x{{.H}}", "-"]
+      move_mouse:
+        argv: ["ydotool", "mousemove", "--absolute", "-x", "{{.X}}", "-y", "{{.Y}}"]
+      mouse_button:
+        argv: ["ydotool", "click", "{{ ydotoolButtonEvent .Button .Down }}"]
+      mouse_wheel:
+        argv: ["ydotool", "mousemove", "--wheel", "--", "{{ ydotoolWheelX .Delta .Horizontal }}", "{{ ydotoolWheelY .Delta .Horizontal }}"]
+      key:
+        argv: ["ydotool", "key", "{{ ydotoolKeyEvent .Key .Down }}"]
+      type_text:
+        argv: ["ydotool", "type", "{{.Text}}"]
+```
+
+Command backends can also keep one SSH connection open and execute each action
+through a fresh SSH channel on that connection. Remote `argv` is shell-quoted
+into one SSH exec command string. Remote `script` is sent to `sh -s`.
+
+```yaml
+input: "remote-shell"
+output: "remote-shell"
+
+backends:
+  remote-shell:
+    type: "command"
+    command:
+      timeout: "30s"
+      ssh:
+        host: "box"
+        port: 22
+        username: "desktop"
+        private_key_path: "~/.ssh/id_ed25519"
+        known_hosts_path: "~/.ssh/known_hosts"
+      screenshot:
+        script: "grim -"
+      move_mouse:
+        argv: ["ydotool", "mousemove", "--absolute", "-x", "{{.X}}", "-y", "{{.Y}}"]
+      mouse_button:
+        argv: ["ydotool", "click", "{{ ydotoolButtonEvent .Button .Down }}"]
+      mouse_wheel:
+        argv: ["ydotool", "mousemove", "--wheel", "--", "{{ ydotoolWheelX .Delta .Horizontal }}", "{{ ydotoolWheelY .Delta .Horizontal }}"]
+      key:
+        argv: ["ydotool", "key", "{{ ydotoolKeyEvent .Key .Down }}"]
+      type_text:
+        argv: ["ydotool", "type", "{{.Text}}"]
+```
+
+SSH auth supports `password` or `private_key_path` plus optional
+`private_key_passphrase`. Host keys are verified through `known_hosts_path`
+unless `insecure_ignore_host_key: true` is set.
+
+`screenshot_crop` is optional. If absent, the service captures a full screenshot
+and crops it in process. `key_scancode` is optional; when absent, scancode input
+returns an unsupported-action error.
 
 ## Environment Variables
 
@@ -35,18 +189,20 @@ Environment variables use the `HEADLESSDESK_` prefix and flatten nested keys wit
 underscores:
 
 ```bash
-HEADLESSDESK_SESSION_PROTOCOL=rdp
-HEADLESSDESK_SESSION_HOST=127.0.0.1
-HEADLESSDESK_SESSION_USERNAME=gmtest
-HEADLESSDESK_SESSION_PASSWORD=gmtest
+HEADLESSDESK_INPUT=default
+HEADLESSDESK_OUTPUT=default
+HEADLESSDESK_BACKENDS_DEFAULT_TYPE=rdp
+HEADLESSDESK_BACKENDS_DEFAULT_HOST=127.0.0.1
+HEADLESSDESK_BACKENDS_DEFAULT_USERNAME=gmtest
+HEADLESSDESK_BACKENDS_DEFAULT_PASSWORD=gmtest
 HEADLESSDESK_SERVER_LISTEN_ADDR=:8080
-HEADLESSDESK_RDP_GRAPHICS_MODE=bitmap
-HEADLESSDESK_VNC_SHARED=true
+HEADLESSDESK_BACKENDS_DEFAULT_RDP_GRAPHICS_MODE=bitmap
+HEADLESSDESK_BACKENDS_DEFAULT_VNC_SHARED=true
 ```
 
 ## RDP Graphics and Acceleration
 
-`rdp.graphics_mode` controls the FreeRDP graphics path:
+`backends.<name>.rdp.graphics_mode` controls the FreeRDP graphics path:
 
 - `auto`: try AVC/H.264 first, then graphics pipeline without H.264, then bitmap;
 - `avc` or `h264`: require the graphics pipeline with H.264;

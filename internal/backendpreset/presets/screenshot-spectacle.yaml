@@ -1,0 +1,7 @@
+command:
+  screenshot:
+    script: |
+      f=$(mktemp --suffix=.png)
+      trap 'rm -f "$f"' EXIT
+      spectacle -b -n -o "$f" >/dev/null
+      cat "$f"

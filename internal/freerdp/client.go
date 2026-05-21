@@ -9,12 +9,10 @@ package freerdp
 import "C"
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg"
-	"image/png"
 	"strings"
 	"sync"
 	"time"
@@ -198,7 +196,7 @@ func (s *Session) Status() Status {
 	return status
 }
 
-func (s *Session) ScreenshotPNG() ([]byte, error) {
+func (s *Session) Screenshot() (image.Image, error) {
 	client := s.getClient()
 	if client == nil {
 		return nil, errors.New("session is closed")
@@ -241,11 +239,7 @@ func (s *Session) ScreenshotPNG() ([]byte, error) {
 		}
 	}
 
-	var out bytes.Buffer
-	if err := png.Encode(&out, img); err != nil {
-		return nil, fmt.Errorf("encode screenshot: %w", err)
-	}
-	return out.Bytes(), nil
+	return img, nil
 }
 
 func (s *Session) SendKey(name string, down bool, repeat bool) error {
@@ -729,14 +723,11 @@ func waitForUsableStartupSnapshot(session *Session, timeout time.Duration) (bool
 				continue
 			}
 
-			pngData, err := session.ScreenshotPNG()
+			img, err := session.Screenshot()
 			if err != nil {
 				continue
 			}
-			blank, err := screenshotLooksBlank(pngData)
-			if err != nil {
-				return false, err
-			}
+			blank := screenshotLooksBlank(img)
 			if !blank {
 				return true, nil
 			}
@@ -748,15 +739,10 @@ func waitForUsableStartupSnapshot(session *Session, timeout time.Duration) (bool
 	}
 }
 
-func screenshotLooksBlank(pngData []byte) (bool, error) {
-	img, err := png.Decode(bytes.NewReader(pngData))
-	if err != nil {
-		return false, fmt.Errorf("decode startup screenshot: %w", err)
-	}
-
+func screenshotLooksBlank(img image.Image) bool {
 	bounds := img.Bounds()
 	if bounds.Dx() == 0 || bounds.Dy() == 0 {
-		return true, nil
+		return true
 	}
 
 	samples := 0
@@ -772,7 +758,7 @@ func screenshotLooksBlank(pngData []byte) (bool, error) {
 			}
 		}
 	}
-	return samples > 0 && whiteSamples == samples, nil
+	return samples > 0 && whiteSamples == samples
 }
 
 func maxInt(a int, b int) int {
