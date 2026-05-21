@@ -2,6 +2,7 @@ package vnc
 
 /*
 #cgo pkg-config: libvncclient
+#cgo windows LDFLAGS: -lws2_32
 #include <stdlib.h>
 #include "client_bridge.h"
 */
