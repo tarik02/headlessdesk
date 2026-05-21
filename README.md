@@ -32,7 +32,6 @@ Build release binaries locally:
 
 ```bash
 just build-linux-amd64
-just build-darwin-amd64
 just build-darwin-arm64
 just build-windows-amd64
 just snapshot

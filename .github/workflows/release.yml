@@ -6,8 +6,8 @@ on:
       - master
     paths:
       - ".changeset/*.md"
-      - ".changesets/package.json"
-      - ".changesets/package-lock.json"
+      - ".changeset/package.json"
+      - ".changeset/package-lock.json"
       - "CHANGELOG.md"
       - "package.json"
   workflow_dispatch:
@@ -46,17 +46,16 @@ jobs:
         with:
           node-version: 24.15.0
           cache: npm
-          cache-dependency-path: .changesets/package-lock.json
+          cache-dependency-path: .changeset/package-lock.json
 
       - name: Install dependencies
-        working-directory: .changesets
-        run: npm ci
+        run: npm install --package-lock-only --prefix .changeset
 
       - name: Create release pull request or publish
         id: changesets
         uses: changesets/action@v1
         with:
-          version: .changesets/node_modules/.bin/changeset version
+          version: npm --prefix .changeset exec --package @changesets/cli -- changeset version
           publish: bash .github/scripts/changesets-publish.sh
           commit: "chore: version packages"
           title: "chore: version packages"

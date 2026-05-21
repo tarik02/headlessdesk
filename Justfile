@@ -8,12 +8,12 @@ build:
     go build -o bin/headlessdesk ./cmd/headlessdesk
 
 goreleaser := "go run github.com/goreleaser/goreleaser/v2@v2.15.0"
-changeset := "npm --prefix .changesets exec -- changeset"
+changeset := "npm --prefix .changeset exec --package @changesets/cli -- changeset"
 
 binary target="linux-amd64":
     case "{{target}}" in \
         linux-*) id=headlessdesk-linux; output=dist/headlessdesk-{{target}} ;; \
-        darwin-*) id=headlessdesk-darwin; output=dist/headlessdesk-{{target}} ;; \
+        darwin-arm64) id=headlessdesk-darwin; output=dist/headlessdesk-{{target}} ;; \
         windows-*) id=headlessdesk-windows-mingw; output=dist/headlessdesk-{{target}}.exe ;; \
         *) echo "unsupported target: {{target}}" >&2; exit 2 ;; \
     esac; \
@@ -23,7 +23,7 @@ snapshot:
     {{goreleaser}} release --snapshot --clean --skip=publish
 
 changesets-install:
-    npm --prefix .changesets ci
+    npm install --package-lock-only --prefix .changeset
 
 changeset: changesets-install
     {{changeset}}
@@ -36,9 +36,6 @@ build-linux-amd64:
 
 build-linux-arm64:
     just binary linux-arm64
-
-build-darwin-amd64:
-    just binary darwin-amd64
 
 build-darwin-arm64:
     just binary darwin-arm64
