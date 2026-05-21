@@ -91,7 +91,7 @@ jobs:
     env:
       TARGET: windows_amd64
       VCPKG_DEFAULT_TRIPLET: x64-mingw-posix-dynamic
-      VCPKG_REF: e0612b42ce44e55a0e630f2ee9d3c533a63d8bc1
+      VCPKG_REF: 6fad4fa784ab2506e35144a7c3d64738976445ea
       VCPKG_DISABLE_METRICS: "1"
       PKG_CONFIG_ALLOW_CROSS: "1"
     steps:
