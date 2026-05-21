@@ -229,15 +229,3 @@ still consume significant CPU on NVIDIA systems because its H.264 encoder falls
 back to software encoding when VAAPI encoding is unavailable. Lowering KRDP's
 video quality or adding a systemd CPU quota can limit the impact, but it does
 not remove the underlying software encoding cost.
-
-## Requirements
-
-For RDP, FreeRDP development files must be visible to `pkg-config`:
-
-- `freerdp3`
-- `freerdp-client3`
-- `winpr3`
-
-For VNC, LibVNCClient development files must be visible to `pkg-config`:
-
-- `libvncclient`
