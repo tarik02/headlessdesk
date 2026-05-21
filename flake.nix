@@ -34,9 +34,10 @@
           modRoot = ".";
           subPackages = [ "cmd/headlessdesk" ];
 
-          vendorHash = "sha256-icTfrV7YRkUOVqbDnWy+tb8q4GU7NwPK0cY96Y0RdPg=";
+          vendorHash = "sha256-om6zBU65ZwPGqk921ku0P5hFnX4vpQnjLzS6euEo4HM=";
 
           nativeBuildInputs = [
+            pkgs.makeWrapper
             pkgs.pkg-config
           ];
 
@@ -51,6 +52,11 @@
             "-s"
             "-w"
           ];
+
+          postInstall = ''
+            wrapProgram $out/bin/headlessdesk \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fuse3 ]}
+          '';
 
           meta = with pkgs.lib; {
             description = "Headless remote desktop screenshot and control server written in Go";
@@ -71,6 +77,7 @@
             pkgs.gopls
             pkgs.pkg-config
             freerdp
+            pkgs.fuse3
             pkgs.libvncserver
           ];
 

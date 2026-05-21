@@ -15,7 +15,6 @@ When enabled, it mounts:
 - `POST /scroll` sends horizontal and/or vertical wheel events.
 - `POST /keypress` presses and releases a named key.
 - `POST /type` types text into the remote session.
-- `POST /wait` sleeps for a given number of milliseconds.
 
 The MCP streamable HTTP API can be enabled or disabled with `--enable-mcp-api`.
 When enabled, it mounts at `--mcp-path`, which defaults to `/mcp`.
@@ -32,6 +31,20 @@ The HTTP and stdio MCP transports expose the same tool set:
 - `keypress`
 - `type`
 - `wait`
+
+The `mount` subcommand exposes the same control service through a FUSE
+filesystem:
+
+- `health.json` and `status.json` read current backend status as JSON.
+- `screenshot.png` reads the latest framebuffer as PNG.
+- `crop/<x>,<y>,<w>,<h>.png` reads a cropped screenshot as PNG.
+- `input/type` accepts raw text to type.
+- `input/keypress` accepts a key name.
+- `input/click.json` accepts `{"x":640,"y":360,"button":"left"}`.
+- `input/double_click.json` accepts the same shape as `click.json`.
+- `input/move.json` accepts `{"x":640,"y":360}`.
+- `input/scroll.json` accepts `{"x":640,"y":360,"scrollY":120}`.
+- `input/drag.json` accepts `{"path":[{"x":1,"y":1},{"x":2,"y":2}]}`.
 
 Example health response:
 

@@ -5,7 +5,8 @@ provide screenshots as Go `image.Image` values. Input backends provide keyboard
 and mouse control. A single backend can provide both, or input and output can
 use different protocols.
 
-The HTTP, REST, and MCP layers use shared protocol-neutral desktop interfaces.
+The HTTP, REST, MCP, and FUSE layers use shared protocol-neutral desktop
+interfaces.
 
 Supported backend types:
 
@@ -88,6 +89,16 @@ startup and reuses it. Each action opens a new SSH session/channel on that
 connection. Rendered `argv` is shell-quoted into one remote command string.
 Rendered `script` is sent to remote `sh -s`. Closing the backend closes the
 shared SSH client.
+
+## FUSE Filesystem
+
+The FUSE filesystem is an adapter over `internal/control.Service`. It does not
+add a backend type. Read files capture fresh service output on open, so
+`screenshot.png`, `crop/<x>,<y>,<w>,<h>.png`, and `health.json` reflect current
+state. Crop files are dynamic directory lookups with deterministic inode numbers
+derived from the filename. Input files collect write chunks per open file handle
+and execute the corresponding service command on close, which lets normal shell
+redirection work with JSON payloads.
 
 Possible VNC improvements:
 

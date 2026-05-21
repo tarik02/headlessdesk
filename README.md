@@ -73,6 +73,21 @@ headlessdesk stdio-mcp \
   --insecure
 ```
 
+Mount a FUSE control filesystem:
+
+```bash
+headlessdesk mount --config ./server.yaml
+cat "$XDG_RUNTIME_DIR/headlessdesk/health.json"
+cp "$XDG_RUNTIME_DIR/headlessdesk/screenshot.png" ./screenshot.png
+cp "$XDG_RUNTIME_DIR/headlessdesk/crop/100,100,400,300.png" ./cropped.png
+printf 'hello from fuse' > "$XDG_RUNTIME_DIR/headlessdesk/input/type"
+printf '{"x":640,"y":360,"button":"left"}' > "$XDG_RUNTIME_DIR/headlessdesk/input/click.json"
+fusermount3 -u "$XDG_RUNTIME_DIR/headlessdesk"
+```
+
+Without an explicit mountpoint, `mount` uses `$XDG_RUNTIME_DIR/headlessdesk`
+when available, then platform runtime/cache/temp fallbacks.
+
 ## Configuration
 
 See [config.example.yaml](config.example.yaml) for a commented config with all

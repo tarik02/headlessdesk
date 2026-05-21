@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -50,10 +49,6 @@ type typeRequest struct {
 	Text string `json:"text" binding:"required"`
 }
 
-type waitRequest struct {
-	MS int `json:"ms" binding:"required"`
-}
-
 type Handler struct {
 	service *control.Service
 }
@@ -69,7 +64,6 @@ func RegisterRoutes(router gin.IRouter, service *control.Service) {
 	router.POST("/scroll", handler.scroll)
 	router.POST("/keypress", handler.keypress)
 	router.POST("/type", handler.typeText)
-	router.POST("/wait", handler.wait)
 }
 
 func (h *Handler) screenshot(c *gin.Context) {
@@ -189,20 +183,6 @@ func (h *Handler) typeText(c *gin.Context) {
 	}
 
 	if err := h.service.Type(control.TypeCommand{Text: req.Text}); err != nil {
-		h.writeUnavailable(c, err)
-		return
-	}
-	h.writeOK(c)
-}
-
-func (h *Handler) wait(c *gin.Context) {
-	var req waitRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.writeBadRequest(c, err)
-		return
-	}
-
-	if err := h.service.Wait(control.WaitCommand{Duration: time.Duration(req.MS) * time.Millisecond}); err != nil {
 		h.writeUnavailable(c, err)
 		return
 	}

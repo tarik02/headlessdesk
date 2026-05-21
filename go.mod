@@ -4,8 +4,10 @@ go 1.25.0
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/adrg/xdg v0.5.3
 	github.com/gin-gonic/gin v1.10.1
 	github.com/godbus/dbus/v5 v5.2.2
+	github.com/hanwen/go-fuse/v2 v2.10.1
 	github.com/holoplot/go-evdev v0.0.0-20260504100651-66d1748fe847
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/spf13/cobra v1.9.1

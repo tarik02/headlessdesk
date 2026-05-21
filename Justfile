@@ -15,7 +15,7 @@ install-config:
 
 install-desktop-entry: install-bin
     install -d "$HOME/.local/share/applications"
-    sed "s|{{HOME}}|$HOME|g" deploy/applications/headlessdesk.desktop > "$HOME/.local/share/applications/headlessdesk.desktop"
+    sed "s|[{][{]HOME[}][}]|$HOME|g" deploy/applications/headlessdesk.desktop > "$HOME/.local/share/applications/headlessdesk.desktop"
     if command -v kbuildsycoca6 >/dev/null 2>&1; then kbuildsycoca6 --noincremental >/dev/null 2>&1 || true; fi
 
 install-systemd: install-bin install-config install-desktop-entry
