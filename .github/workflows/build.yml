@@ -91,6 +91,7 @@ jobs:
     env:
       TARGET: windows_amd64
       VCPKG_DEFAULT_TRIPLET: x64-mingw-posix-dynamic
+      VCPKG_REF: e0612b42ce44e55a0e630f2ee9d3c533a63d8bc1
       VCPKG_DISABLE_METRICS: "1"
       PKG_CONFIG_ALLOW_CROSS: "1"
     steps:
@@ -123,12 +124,18 @@ jobs:
           path: |
             vcpkg
             ~/.cache/vcpkg
-          key: vcpkg-windows-amd64-${{ hashFiles('.github/workflows/build.yml', '.github/vcpkg-triplets/**') }}
+          key: vcpkg-windows-amd64-${{ env.VCPKG_REF }}-${{ hashFiles('.github/workflows/build.yml', '.github/vcpkg-triplets/**') }}
+          restore-keys: |
+            vcpkg-windows-amd64-${{ env.VCPKG_REF }}-
 
       - name: Install target libraries
         run: |
-          if [ ! -x vcpkg/vcpkg ]; then
+          if [ ! -d vcpkg/.git ]; then
             git clone https://github.com/microsoft/vcpkg.git
+          fi
+          git -C vcpkg fetch --depth 1 origin "$VCPKG_REF"
+          git -C vcpkg checkout --detach "$VCPKG_REF"
+          if [ ! -x vcpkg/vcpkg ]; then
             ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
           fi
           ./vcpkg/vcpkg install "freerdp[client]" --triplet x64-mingw-posix-dynamic --overlay-triplets .github/vcpkg-triplets
@@ -191,6 +198,8 @@ jobs:
       - macos
       - windows-mingw
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -206,9 +215,16 @@ jobs:
           name: checksums
           path: dist/checksums.txt
 
-      - name: Attach release assets
+      - name: Publish release assets
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+        run: |
+          .github/scripts/release-notes.sh "$GITHUB_REF_NAME" > release-notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
+          fi
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
