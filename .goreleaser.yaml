@@ -44,6 +44,7 @@ builds:
       - CC=x86_64-w64-mingw32-gcc-posix
       - CXX=x86_64-w64-mingw32-g++-posix
       - PKG_CONFIG_ALLOW_CROSS=1
+      - CGO_CPPFLAGS=-D__STDC_NO_THREADS__ -D__STDC_NO_ATOMICS__
     flags:
       - -trimpath
     ldflags:
