@@ -66,4 +66,4 @@ jobs:
 
       - id: get-version
         run: |
-          printf 'version=%s\n' "$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
