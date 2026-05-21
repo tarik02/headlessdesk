@@ -125,11 +125,11 @@ func (s *Service) Click(cmd ClickCommand) error {
 }
 
 func (s *Service) DoubleClick(cmd DoubleClickCommand) error {
-	if err := s.Click(ClickCommand{X: cmd.X, Y: cmd.Y, Button: cmd.Button}); err != nil {
+	if err := s.Click(ClickCommand(cmd)); err != nil {
 		return err
 	}
 	time.Sleep(doubleClickPause)
-	return s.Click(ClickCommand{X: cmd.X, Y: cmd.Y, Button: cmd.Button})
+	return s.Click(ClickCommand(cmd))
 }
 
 func (s *Service) Drag(cmd DragCommand) error {

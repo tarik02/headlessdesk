@@ -85,18 +85,18 @@ func New() (*Backend, error) {
 	var cookie int32
 	call := obj.Call(interfaceName+".connectToEIS", 0, eisCapabilities)
 	if call.Err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("connect to KWin EIS: %w", call.Err)
 	}
 	if err := call.Store(&fd, &cookie); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("decode KWin EIS response: %w", err)
 	}
 
 	ei := C.ei_new_sender(nil)
 	if ei == nil {
 		_ = unix.Close(int(fd))
-		conn.Close()
+		_ = conn.Close()
 		return nil, errors.New("create libei sender")
 	}
 	C.ei_log_set_priority(ei, C.EI_LOG_PRIORITY_ERROR)
@@ -105,7 +105,7 @@ func New() (*Backend, error) {
 	C.free(unsafe.Pointer(name))
 	if rc := C.ei_setup_backend_fd(ei, C.int(fd)); rc < 0 {
 		C.ei_unref(ei)
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("set up libei backend fd: %d", int(rc))
 	}
 
@@ -172,8 +172,8 @@ func (b *Backend) Close() error {
 			_ = b.obj.Call(interfaceName+".disconnect", 0, b.cookie).Err
 			b.cookie = 0
 		}
-		b.conn.Close()
-		b.statusMu.Lock()
+			_ = b.conn.Close()
+			b.statusMu.Lock()
 		b.status.Connected = false
 		b.status.Active = false
 		b.status.Ready = false

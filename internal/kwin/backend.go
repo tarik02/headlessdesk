@@ -120,7 +120,7 @@ func (b *Backend) Close() error {
 		b.status.Active = false
 		b.status.State = "CLOSED"
 		b.mu.Unlock()
-		b.conn.Close()
+		_ = b.conn.Close()
 		close(b.done)
 	})
 	return nil
@@ -131,7 +131,9 @@ func (b *Backend) capture(method string, args ...any) (rawImage, error) {
 	if err != nil {
 		return rawImage{}, fmt.Errorf("create screenshot pipe: %w", err)
 	}
-	defer readFile.Close()
+	defer func() {
+		_ = readFile.Close()
+	}()
 
 	readCh := make(chan readResult, 1)
 	go func() {
