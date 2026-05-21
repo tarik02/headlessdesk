@@ -41,8 +41,8 @@ builds:
       - amd64
     env:
       - CGO_ENABLED=1
-      - CC=x86_64-w64-mingw32-gcc
-      - CXX=x86_64-w64-mingw32-g++
+      - CC=x86_64-w64-mingw32-gcc-posix
+      - CXX=x86_64-w64-mingw32-g++-posix
       - PKG_CONFIG_ALLOW_CROSS=1
     flags:
       - -trimpath

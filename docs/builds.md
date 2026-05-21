@@ -30,7 +30,7 @@ just snapshot
 
 Linux builds include KWin screenshot and EIS input support. macOS and Windows
 builds include RDP, VNC, and command backends. Windows builds are cross-compiled
-from Linux with MinGW and need FreeRDP and LibVNCClient target libraries in
+from Linux with posix MinGW and need FreeRDP and LibVNCClient target libraries in
 `pkg-config`. Binary packaging is configured in [`.goreleaser.yaml`](../.goreleaser.yaml).
 
 ## Dependencies

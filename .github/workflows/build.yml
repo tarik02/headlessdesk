@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       TARGET: windows_amd64
-      VCPKG_DEFAULT_TRIPLET: x64-mingw-dynamic
+      VCPKG_DEFAULT_TRIPLET: x64-mingw-posix-dynamic
       VCPKG_DISABLE_METRICS: "1"
       PKG_CONFIG_ALLOW_CROSS: "1"
     steps:
@@ -106,14 +106,16 @@ jobs:
           sudo apt-get install -y \
             cmake \
             curl \
-            g++-mingw-w64-x86-64 \
-            gcc-mingw-w64-x86-64 \
+            g++-mingw-w64-x86-64-posix \
+            gcc-mingw-w64-x86-64-posix \
             git \
             ninja-build \
             pkg-config \
             tar \
             unzip \
             zip
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
       - name: Cache vcpkg
         uses: actions/cache@v4
@@ -121,7 +123,7 @@ jobs:
           path: |
             vcpkg
             ~/.cache/vcpkg
-          key: vcpkg-windows-amd64-${{ hashFiles('.github/workflows/build.yml') }}
+          key: vcpkg-windows-amd64-${{ hashFiles('.github/workflows/build.yml', '.github/vcpkg-triplets/**') }}
 
       - name: Install target libraries
         run: |
@@ -129,7 +131,7 @@ jobs:
             git clone https://github.com/microsoft/vcpkg.git
             ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
           fi
-          ./vcpkg/vcpkg install "freerdp[client]" --triplet x64-mingw-dynamic
+          ./vcpkg/vcpkg install "freerdp[client]" --triplet x64-mingw-posix-dynamic --overlay-triplets .github/vcpkg-triplets
 
       - name: Build LibVNCClient
         run: |
@@ -161,9 +163,9 @@ jobs:
       - name: Build
         uses: goreleaser/goreleaser-action@v6
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/mingw-root/lib/pkgconfig:${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/lib/pkgconfig:${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/share/pkgconfig
-          CGO_CFLAGS: -I${{ github.workspace }}/mingw-root/include -I${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/include
-          CGO_LDFLAGS: -L${{ github.workspace }}/mingw-root/lib -L${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/lib
+          PKG_CONFIG_PATH: ${{ github.workspace }}/mingw-root/lib/pkgconfig:${{ github.workspace }}/vcpkg/installed/x64-mingw-posix-dynamic/lib/pkgconfig:${{ github.workspace }}/vcpkg/installed/x64-mingw-posix-dynamic/share/pkgconfig
+          CGO_CFLAGS: -I${{ github.workspace }}/mingw-root/include -I${{ github.workspace }}/vcpkg/installed/x64-mingw-posix-dynamic/include
+          CGO_LDFLAGS: -L${{ github.workspace }}/mingw-root/lib -L${{ github.workspace }}/vcpkg/installed/x64-mingw-posix-dynamic/lib
         with:
           version: "~> v2"
           args: build --snapshot --clean --single-target --id headlessdesk-windows-mingw --output dist/headlessdesk-windows-amd64.exe
@@ -172,7 +174,7 @@ jobs:
         run: |
           mkdir -p dist/headlessdesk-windows-amd64
           cp dist/headlessdesk-windows-amd64.exe dist/headlessdesk-windows-amd64/
-          cp vcpkg/installed/x64-mingw-dynamic/bin/*.dll dist/headlessdesk-windows-amd64/
+          cp vcpkg/installed/x64-mingw-posix-dynamic/bin/*.dll dist/headlessdesk-windows-amd64/
           cp mingw-root/bin/*.dll dist/headlessdesk-windows-amd64/
           (cd dist && zip -r headlessdesk-windows-amd64.zip headlessdesk-windows-amd64)
 
