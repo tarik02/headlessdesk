@@ -169,10 +169,22 @@ static BOOL gofreerdp_pre_connect(freerdp* instance) {
 	rdpSettings* settings = context->settings;
 	if (!freerdp_settings_set_bool(settings, FreeRDP_CertificateCallbackPreferPEM, TRUE))
 		return FALSE;
+#ifdef _WIN32
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMajorType, OSMAJORTYPE_WINDOWS))
+		return FALSE;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMinorType, OSMINORTYPE_WINDOWS_NT))
+		return FALSE;
+#elif defined(__APPLE__)
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMajorType, OSMAJORTYPE_OSX))
+		return FALSE;
+	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMinorType, OSMINORTYPE_MACINTOSH))
+		return FALSE;
+#else
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMajorType, OSMAJORTYPE_UNIX))
 		return FALSE;
 	if (!freerdp_settings_set_uint32(settings, FreeRDP_OsMinorType, OSMINORTYPE_NATIVE_XSERVER))
 		return FALSE;
+#endif
 	if (PubSub_SubscribeChannelConnected(context->pubSub, gofreerdp_on_channel_connected) < 0)
 		return FALSE;
 	if (PubSub_SubscribeChannelDisconnected(context->pubSub, gofreerdp_on_channel_disconnected) < 0)

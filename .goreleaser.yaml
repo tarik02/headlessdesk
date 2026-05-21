@@ -1,0 +1,67 @@
+version: 2
+
+project_name: headlessdesk
+
+builds:
+  - id: headlessdesk-linux
+    main: ./cmd/headlessdesk
+    binary: headlessdesk
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=1
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+  - id: headlessdesk-darwin
+    main: ./cmd/headlessdesk
+    binary: headlessdesk
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=1
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+  - id: headlessdesk-windows-mingw
+    main: ./cmd/headlessdesk
+    binary: headlessdesk
+    goos:
+      - windows
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+      - PKG_CONFIG_ALLOW_CROSS=1
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - ids:
+      - headlessdesk-linux
+      - headlessdesk-darwin
+      - headlessdesk-windows-mingw
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: checksums.txt

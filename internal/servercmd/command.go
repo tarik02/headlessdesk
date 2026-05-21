@@ -27,11 +27,8 @@ import (
 	"headlessdesk/internal/control"
 	"headlessdesk/internal/desktop"
 	"headlessdesk/internal/freerdp"
-	"headlessdesk/internal/fusefs"
 	"headlessdesk/internal/healthapi"
 	"headlessdesk/internal/httpapi"
-	"headlessdesk/internal/kwin"
-	"headlessdesk/internal/kwineis"
 	"headlessdesk/internal/mcpapi"
 	"headlessdesk/internal/vnc"
 )
@@ -135,7 +132,7 @@ func New() *cobra.Command {
 	persistentFlags.StringVar(&configPath, "config", "", "path to a YAML, TOML, or JSON config file")
 	persistentFlags.String("input-backend", "default", "named backend for keyboard and mouse input")
 	persistentFlags.String("output-backend", "default", "named backend for screenshots")
-	persistentFlags.String("backend-type", "rdp", "default backend type: rdp, vnc, command, kwin, or eis")
+	persistentFlags.String("backend-type", "rdp", "default backend type: "+supportedBackendTypesDescription())
 	persistentFlags.String("remote-host", "", "default remote desktop server hostname or IP")
 	persistentFlags.Uint("remote-port", 0, "default remote desktop server port; defaults by backend type")
 	persistentFlags.String("username", "", "default remote desktop username")
@@ -231,37 +228,6 @@ func newStdioMCPCommand(v *viper.Viper, configPath *string) *cobra.Command {
 			return runStdioMCP(cfg)
 		},
 	}
-}
-
-func newMountCommand(v *viper.Viper, configPath *string) *cobra.Command {
-	var debug bool
-
-	cmd := &cobra.Command{
-		Use:   "mount [MOUNTPOINT]",
-		Short: "Mount desktop screenshot, health, and input control files",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig(v, *configPath)
-			if err != nil {
-				return err
-			}
-			applyChangedFlags(cmd, &cfg)
-			if err := resolveBackendExtends(&cfg); err != nil {
-				return err
-			}
-			if err := validateConfig(cfg); err != nil {
-				return err
-			}
-			mountpoint, err := resolveMountpoint(args)
-			if err != nil {
-				return err
-			}
-			return runFuseMount(cfg, mountpoint, fusefs.Options{Debug: debug})
-		},
-	}
-
-	cmd.Flags().BoolVar(&debug, "debug", false, "enable FUSE debug logging")
-	return cmd
 }
 
 func resolveMountpoint(args []string) (string, error) {
@@ -630,6 +596,9 @@ func validateBackendConfig(name string, cfg backendConfig, roles backendRoles) e
 	default:
 		return fmt.Errorf("invalid backends.%s.type: %q", name, cfg.Type)
 	}
+	if err := validateBackendPlatform(name, backendType); err != nil {
+		return err
+	}
 	if cfg.Port > math.MaxUint16 {
 		return fmt.Errorf("invalid backends.%s.port: %d", name, cfg.Port)
 	}
@@ -845,48 +814,6 @@ func runStdioMCP(cfg config) error {
 	return mcpapi.RunStdio(ctx, control.NewService(backends.component, backends.output, backends.input))
 }
 
-func runFuseMount(cfg config, mountpoint string, options fusefs.Options) error {
-	if err := os.MkdirAll(mountpoint, 0700); err != nil {
-		return fmt.Errorf("create mountpoint: %w", err)
-	}
-
-	backends, err := startBackends(cfg)
-	if err != nil {
-		return err
-	}
-	defer closeComponent(backends.component)
-	logComponentEnd("backend graph", backends.component)
-
-	service := control.NewService(backends.component, backends.output, backends.input)
-	server, err := fusefs.New(service, options).Mount(mountpoint)
-	if err != nil {
-		return fmt.Errorf("mount fuse filesystem: %w", err)
-	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	log.Printf("fuse filesystem mounted on %s", mountpoint)
-	serverDone := make(chan struct{})
-	go func() {
-		server.Wait()
-		close(serverDone)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return server.Unmount()
-	case <-backends.component.Done():
-		err := backends.component.Err()
-		if unmountErr := server.Unmount(); unmountErr != nil {
-			return errors.Join(err, unmountErr)
-		}
-		return err
-	case <-serverDone:
-		return nil
-	}
-}
-
 func startBackends(cfg config) (*startedBackends, error) {
 	inputName := strings.TrimSpace(cfg.Input)
 	outputName := strings.TrimSpace(cfg.Output)
@@ -943,11 +870,7 @@ func startOutputBackend(name string, cfg backendConfig) (desktop.OutputBackend, 
 	case "command":
 		return startCommandBackend(name, cfg)
 	case "kwin":
-		backend, err := kwin.New()
-		if err != nil {
-			return nil, fmt.Errorf("start KWin backend %q: %w", name, err)
-		}
-		return backend, nil
+		return startKWinBackend(name)
 	case "eis":
 		return nil, fmt.Errorf("backend %q type eis does not support output", name)
 	default:
@@ -966,11 +889,7 @@ func startInputBackend(name string, cfg backendConfig) (desktop.InputBackend, er
 	case "kwin":
 		return nil, fmt.Errorf("backend %q type kwin does not support input", name)
 	case "eis":
-		backend, err := kwineis.New()
-		if err != nil {
-			return nil, fmt.Errorf("start KWin EIS backend %q: %w", name, err)
-		}
-		return backend, nil
+		return startKWinEISBackend(name)
 	default:
 		return nil, fmt.Errorf("unsupported input backend %q type: %s", name, cfg.Type)
 	}

@@ -3,8 +3,6 @@ package inputcode
 import (
 	"fmt"
 	"strings"
-
-	evdev "github.com/holoplot/go-evdev"
 )
 
 type KeyEvent struct {
@@ -17,11 +15,11 @@ func Key(name string) (uint32, error) {
 	if !ok {
 		return 0, fmt.Errorf("unsupported key: %s", name)
 	}
-	code, ok := evdev.KEYFromString[canonical]
+	code, ok := keyCodes[canonical]
 	if !ok {
 		return 0, fmt.Errorf("unsupported key: %s", name)
 	}
-	return uint32(code), nil
+	return code, nil
 }
 
 func MouseButton(button string) (uint32, error) {
@@ -29,11 +27,11 @@ func MouseButton(button string) (uint32, error) {
 	if !ok {
 		return 0, fmt.Errorf("unsupported mouse button: %s", button)
 	}
-	code, ok := evdev.KEYFromString[canonical]
+	code, ok := keyCodes[canonical]
 	if !ok {
 		return 0, fmt.Errorf("unsupported mouse button: %s", button)
 	}
-	return uint32(code), nil
+	return code, nil
 }
 
 func MouseButtonIndex(button string) (int, error) {
@@ -41,22 +39,22 @@ func MouseButtonIndex(button string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	switch evdev.EvCode(code) {
-	case evdev.BTN_LEFT:
+	switch code {
+	case keyCodes["BTN_LEFT"]:
 		return 0, nil
-	case evdev.BTN_RIGHT:
+	case keyCodes["BTN_RIGHT"]:
 		return 1, nil
-	case evdev.BTN_MIDDLE:
+	case keyCodes["BTN_MIDDLE"]:
 		return 2, nil
-	case evdev.BTN_SIDE:
+	case keyCodes["BTN_SIDE"]:
 		return 3, nil
-	case evdev.BTN_EXTRA:
+	case keyCodes["BTN_EXTRA"]:
 		return 4, nil
-	case evdev.BTN_FORWARD:
+	case keyCodes["BTN_FORWARD"]:
 		return 5, nil
-	case evdev.BTN_BACK:
+	case keyCodes["BTN_BACK"]:
 		return 6, nil
-	case evdev.BTN_TASK:
+	case keyCodes["BTN_TASK"]:
 		return 7, nil
 	default:
 		return 0, fmt.Errorf("unsupported mouse button code: %d", code)

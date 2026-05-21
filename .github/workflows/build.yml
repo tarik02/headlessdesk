@@ -1,0 +1,173 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: linux-amd64
+    runs-on: ubuntu-24.04
+    env:
+      TARGET: linux_amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            freerdp3-dev \
+            libei-dev \
+            libvncserver-dev \
+            libwinpr3-dev \
+            pkg-config
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean --single-target --id headlessdesk-linux --output dist/headlessdesk-linux-amd64
+
+      - name: Package
+        run: tar -czf dist/headlessdesk-linux-amd64.tar.gz -C dist headlessdesk-linux-amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: headlessdesk-linux-amd64
+          path: dist/headlessdesk-linux-amd64.tar.gz
+
+      - name: Attach release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/headlessdesk-linux-amd64.tar.gz
+
+  macos:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      TARGET: ${{ matrix.goreleaser_target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13
+            target: darwin-amd64
+            goreleaser_target: darwin_amd64
+          - runner: macos-14
+            target: darwin-arm64
+            goreleaser_target: darwin_arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install dependencies
+        run: brew install freerdp libvncserver pkg-config
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean --single-target --id headlessdesk-darwin --output dist/headlessdesk-${{ matrix.target }}
+
+      - name: Package
+        run: tar -czf dist/headlessdesk-${{ matrix.target }}.tar.gz -C dist headlessdesk-${{ matrix.target }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: headlessdesk-${{ matrix.target }}
+          path: dist/headlessdesk-${{ matrix.target }}.tar.gz
+
+      - name: Attach release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/headlessdesk-${{ matrix.target }}.tar.gz
+
+  windows-mingw:
+    name: windows-amd64
+    runs-on: ubuntu-24.04
+    env:
+      TARGET: windows_amd64
+      VCPKG_DEFAULT_TRIPLET: x64-mingw-dynamic
+      PKG_CONFIG_ALLOW_CROSS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            curl \
+            g++-mingw-w64-x86-64 \
+            gcc-mingw-w64-x86-64 \
+            git \
+            ninja-build \
+            pkg-config \
+            tar \
+            unzip \
+            zip
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+            ~/.cache/vcpkg
+          key: vcpkg-windows-amd64-${{ hashFiles('.github/workflows/build.yml') }}
+
+      - name: Install target libraries
+        run: |
+          if [ ! -x vcpkg/vcpkg ]; then
+            git clone https://github.com/microsoft/vcpkg.git
+            ./vcpkg/bootstrap-vcpkg.sh
+          fi
+          ./vcpkg/vcpkg install "freerdp[client]" libvncserver --triplet x64-mingw-dynamic
+
+      - name: Build
+        uses: goreleaser/goreleaser-action@v6
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/lib/pkgconfig:${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/share/pkgconfig
+          CGO_CFLAGS: -I${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/include
+          CGO_LDFLAGS: -L${{ github.workspace }}/vcpkg/installed/x64-mingw-dynamic/lib
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean --single-target --id headlessdesk-windows-mingw --output dist/headlessdesk-windows-amd64.exe
+
+      - name: Collect runtime libraries
+        run: |
+          mkdir -p dist/headlessdesk-windows-amd64
+          cp dist/headlessdesk-windows-amd64.exe dist/headlessdesk-windows-amd64/
+          cp vcpkg/installed/x64-mingw-dynamic/bin/*.dll dist/headlessdesk-windows-amd64/
+          (cd dist && zip -r headlessdesk-windows-amd64.zip headlessdesk-windows-amd64)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: headlessdesk-windows-amd64
+          path: dist/headlessdesk-windows-amd64.zip
+
+      - name: Attach release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/headlessdesk-windows-amd64.zip

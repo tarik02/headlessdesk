@@ -7,6 +7,45 @@ build:
     mkdir -p bin
     go build -o bin/headlessdesk ./cmd/headlessdesk
 
+goreleaser := "go run github.com/goreleaser/goreleaser/v2@v2.15.0"
+changeset := "npm --prefix .changesets exec -- changeset"
+
+binary target="linux-amd64":
+    case "{{target}}" in \
+        linux-*) id=headlessdesk-linux; output=dist/headlessdesk-{{target}} ;; \
+        darwin-*) id=headlessdesk-darwin; output=dist/headlessdesk-{{target}} ;; \
+        windows-*) id=headlessdesk-windows-mingw; output=dist/headlessdesk-{{target}}.exe ;; \
+        *) echo "unsupported target: {{target}}" >&2; exit 2 ;; \
+    esac; \
+    TARGET={{replace(target, "-", "_")}} {{goreleaser}} build --snapshot --clean --single-target --id "$id" --output "$output"
+
+snapshot:
+    {{goreleaser}} release --snapshot --clean --skip=publish
+
+changesets-install:
+    npm --prefix .changesets ci
+
+changeset: changesets-install
+    {{changeset}}
+
+changeset-version: changesets-install
+    {{changeset}} version
+
+build-linux-amd64:
+    just binary linux-amd64
+
+build-linux-arm64:
+    just binary linux-arm64
+
+build-darwin-amd64:
+    just binary darwin-amd64
+
+build-darwin-arm64:
+    just binary darwin-arm64
+
+build-windows-amd64:
+    just binary windows-amd64
+
 install-bin: build
     install -Dm755 bin/headlessdesk "$HOME/.local/bin/headlessdesk"
 

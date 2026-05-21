@@ -28,6 +28,21 @@ through `pkg-config`:
 go build ./cmd/headlessdesk
 ```
 
+Build release binaries locally:
+
+```bash
+just build-linux-amd64
+just build-darwin-amd64
+just build-darwin-arm64
+just build-windows-amd64
+just snapshot
+```
+
+Linux builds include KWin screenshot and EIS input support. macOS and Windows
+builds include RDP, VNC, and command backends. Windows builds are cross-compiled
+from Linux with MinGW and need FreeRDP and LibVNCClient target libraries in
+`pkg-config`. Binary packaging is configured in `.goreleaser.yaml`.
+
 ## Usage
 
 Run an RDP-backed server:

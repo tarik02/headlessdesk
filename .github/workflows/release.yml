@@ -1,0 +1,70 @@
+name: release
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".changeset/*.md"
+      - ".changesets/package.json"
+      - ".changesets/package-lock.json"
+      - "CHANGELOG.md"
+      - "package.json"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  changesets:
+    runs-on: ubuntu-24.04
+
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      version: ${{ steps.get-version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: .changesets/package-lock.json
+
+      - name: Install dependencies
+        working-directory: .changesets
+        run: npm ci
+
+      - name: Create release pull request or publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: .changesets/node_modules/.bin/changeset version
+          publish: bash .github/scripts/changesets-publish.sh
+          commit: "chore: version packages"
+          title: "chore: version packages"
+          commitMode: github-api
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - id: get-version
+        run: |
+          printf 'version=%s\n' "$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
