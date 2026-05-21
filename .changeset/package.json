@@ -1,0 +1,7 @@
+{
+  "name": "headlessdesk-changesets",
+  "private": true,
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0"
+  }
+}

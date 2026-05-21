@@ -1,0 +1,11 @@
+command:
+  move_mouse:
+    argv: ["ydotool", "mousemove", "--absolute", "-x", "{{.X}}", "-y", "{{.Y}}"]
+  mouse_button:
+    argv: ["ydotool", "click", "{{ ydotoolButtonEvent .Button .Down }}"]
+  mouse_wheel:
+    argv: ["ydotool", "mousemove", "--wheel", "--", "{{ ydotoolWheelX .Delta .Horizontal }}", "{{ ydotoolWheelY .Delta .Horizontal }}"]
+  key:
+    argv: ["ydotool", "key", "{{ ydotoolKeyEvent .Key .Down }}"]
+  type_text:
+    argv: ["ydotool", "type", "{{.Text}}"]

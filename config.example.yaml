@@ -1,0 +1,214 @@
+# headlessdesk example config.
+#
+# Run with:
+#   headlessdesk serve --config ./config.example.yaml
+#
+# `input` chooses backend used for keyboard/mouse actions.
+# `output` chooses backend used for screenshots.
+# Both can point to same backend or to different named backends.
+
+server:
+  # HTTP listen address for /healthz, REST API, and optional MCP HTTP API.
+  listen_addr: ":8080"
+
+  # HTTP path for streamable MCP API when enable_mcp_api is true.
+  mcp_path: "/mcp"
+
+  # Enable REST endpoints: /screenshot, /click, /double_click, /drag, /move,
+  # /scroll, /keypress, /type, /wait.
+  enable_http_api: true
+
+  # Enable MCP streamable HTTP endpoint at mcp_path.
+  enable_mcp_api: true
+
+input: "desktop"
+output: "desktop"
+
+backends:
+  # Backends can extend built-in presets. Presets apply left-to-right, then any
+  # fields on this backend override preset values.
+  #
+  # Built-in presets:
+  # - preset:command-base: sets type: command and command.timeout: 30s.
+  # - preset:screenshot-spectacle: captures KDE/Wayland screenshots with spectacle.
+  # - preset:input-ydotool: sends mouse, wheel, key, and text events with ydotool.
+  #
+  # local:
+  #   extends:
+  #     - preset:command-base
+  #     - preset:screenshot-spectacle
+  #     - preset:input-ydotool
+  #
+  #   # Optional overrides after presets. This replaces only type_text.
+  #   command:
+  #     type_text:
+  #       argv: ["ydotool", "type", "--delay", "0", "{{.Text}}"]
+
+  # KWin screenshot backend. KDE/Wayland output only. Supports full and cropped
+  # screenshots through org.kde.KWin.ScreenShot2.
+  #
+  # kde-screen:
+  #   type: "kwin"
+  #
+  # KWin EIS input backend. KDE/Wayland input only. Uses KWin's private EIS
+  # remote desktop DBus endpoint and libei for pointer, button, wheel, key, and
+  # ASCII text input. Screenshot-space coordinates are mapped into EIS logical
+  # regions when they differ.
+  #
+  # kde-input:
+  #   type: "eis"
+
+  # RDP backend. Can be used for input, output, or both.
+  desktop:
+    # Backend type: rdp, vnc, command, kwin, or eis.
+    type: "rdp"
+
+    # Remote host/IP and port. Port 0 means default for backend type:
+    # 3389 for RDP, 5900 for VNC.
+    host: "127.0.0.1"
+    port: 3391
+
+    # Username/password. Required for RDP. Password is optional for VNC servers
+    # that support no-auth.
+    username: "gmtest"
+    password: "gmtest"
+
+    # Requested desktop size for RDP/VNC sessions.
+    width: 1280
+    height: 720
+
+    # RDP certificate option. When true, accept unknown/changed certificates.
+    insecure: true
+
+    rdp:
+      # Optional RDP domain.
+      domain: ""
+
+      # RDP keyboard layout id. 1033 / 0x0409 = en-US.
+      keyboard_layout: 1033
+
+      # RDP graphics mode:
+      # - auto: try H.264 graphics, then graphics without H.264, then bitmap.
+      # - avc or h264: require graphics pipeline with H.264.
+      # - gfx or graphics: require graphics pipeline without H.264.
+      # - bitmap or legacy: require classic bitmap updates.
+      graphics_mode: "auto"
+
+  # VNC backend. Uncomment and set input/output to use it.
+  #
+  # vnc-desktop:
+  #   type: "vnc"
+  #   host: "127.0.0.1"
+  #   port: 5900
+  #   username: ""
+  #   password: "secret"
+  #   width: 1280
+  #   height: 720
+  #   vnc:
+  #     # Request shared VNC session instead of exclusive session.
+  #     shared: true
+  #
+  #     # View-only VNC connection. Valid only when this backend is selected as
+  #     # output, not as input.
+  #     view_only: false
+
+  # Local command backend. Each action uses either argv or script.
+  # - argv: direct exec, no implicit shell.
+  # - script: rendered then executed with sh -s.
+  # Templates include Sprig plus helpers such as ydotoolButtonEvent,
+  # ydotoolWheelX, ydotoolWheelY, and ydotoolKeyEvent.
+  # Screenshot commands must write PNG bytes to stdout.
+  #
+  # local-command:
+  #   type: "command"
+  #   command:
+  #     # Default timeout for all command actions.
+  #     timeout: "30s"
+  #
+  #     # Screenshot output. Required when command backend is selected as output.
+  #     screenshot:
+  #       # Optional per-action timeout.
+  #       timeout: "30s"
+  #       script: |
+  #         f=$(mktemp --suffix=.png)
+  #         trap 'rm -f "$f"' EXIT
+  #         grim "$f"
+  #         cat "$f"
+  #
+  #     # Optional cropped screenshot. If omitted, headlessdesk captures full
+  #     # screenshot and crops it in process. Template values: X, Y, W, H.
+  #     screenshot_crop:
+  #       argv: ["grim", "-g", "{{.X}},{{.Y}} {{.W}}x{{.H}}", "-"]
+  #
+  #     # Mouse move. Required when command backend is selected as input.
+  #     # Template values: X, Y.
+  #     move_mouse:
+  #       argv: ["ydotool", "mousemove", "--absolute", "-x", "{{.X}}", "-y", "{{.Y}}"]
+  #
+  #     # Mouse button down/up. Template values: Button, X, Y, Down.
+  #     mouse_button:
+  #       argv: ["ydotool", "click", "{{ ydotoolButtonEvent .Button .Down }}"]
+  #
+  #     # Mouse wheel. Template values: X, Y, Delta, Horizontal.
+  #     mouse_wheel:
+  #       argv: ["ydotool", "mousemove", "--wheel", "--", "{{ ydotoolWheelX .Delta .Horizontal }}", "{{ ydotoolWheelY .Delta .Horizontal }}"]
+  #
+  #     # Key down/up. Template values: Key, Down, Repeat.
+  #     key:
+  #       argv: ["ydotool", "key", "{{ ydotoolKeyEvent .Key .Down }}"]
+  #
+  #     # Optional scancode key down/up. Template values: Scancode, Down, Repeat.
+  #     # If omitted, scancode input returns unsupported-action error.
+  #     key_scancode:
+  #       argv: ["ydotool", "key", "{{.Scancode}}", "{{.Down}}", "{{.Repeat}}"]
+  #
+  #     # Text typing. Template value: Text.
+  #     type_text:
+  #       argv: ["ydotool", "type", "{{.Text}}"]
+
+  # SSH command backend. Opens one SSH client connection at startup and reuses
+  # it. Each action opens a fresh SSH channel/session over that connection.
+  # Remote argv is shell-quoted into one SSH exec command string. Remote script
+  # is sent to sh -s.
+  #
+  # ssh-command:
+  #   type: "command"
+  #   command:
+  #     timeout: "30s"
+  #
+  #     ssh:
+  #       host: "box"
+  #       port: 22
+  #       username: "desktop"
+  #
+  #       # Auth: use password or private_key_path. private_key_passphrase is
+  #       # optional for encrypted keys.
+  #       password: ""
+  #       private_key_path: "~/.ssh/id_ed25519"
+  #       private_key_passphrase: ""
+  #
+  #       # Host key verification. Prefer known_hosts_path. Set
+  #       # insecure_ignore_host_key only for throwaway trusted environments.
+  #       known_hosts_path: "~/.ssh/known_hosts"
+  #       insecure_ignore_host_key: false
+  #
+  #       # SSH dial timeout. Command action timeouts still come from command
+  #       # timeout or per-action timeout.
+  #       timeout: "30s"
+  #
+  #     screenshot:
+  #       script: "grim -"
+  #     screenshot_crop:
+  #       argv: ["grim", "-g", "{{.X}},{{.Y}} {{.W}}x{{.H}}", "-"]
+  #     move_mouse:
+  #       argv: ["ydotool", "mousemove", "--absolute", "-x", "{{.X}}", "-y", "{{.Y}}"]
+  #     mouse_button:
+  #       argv: ["ydotool", "click", "{{ ydotoolButtonEvent .Button .Down }}"]
+  #     mouse_wheel:
+  #       argv: ["ydotool", "mousemove", "--wheel", "--", "{{ ydotoolWheelX .Delta .Horizontal }}", "{{ ydotoolWheelY .Delta .Horizontal }}"]
+  #     key:
+  #       argv: ["ydotool", "key", "{{ ydotoolKeyEvent .Key .Down }}"]
+  #     key_scancode:
+  #       argv: ["ydotool", "key", "{{.Scancode}}", "{{.Down}}", "{{.Repeat}}"]
+  #     type_text:
+  #       argv: ["ydotool", "type", "{{.Text}}"]
