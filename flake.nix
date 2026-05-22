@@ -68,7 +68,7 @@
 
           meta = with pkgs.lib; {
             description = "Headless remote desktop screenshot and control server written in Go";
-            license = licenses.gpl3Plus;
+            license = licenses.mit;
             mainProgram = "headlessdesk";
             platforms = platforms.linux;
           };
