@@ -6,6 +6,12 @@ Build with Nix:
 nix build .#
 ```
 
+After changing `go.mod` or `go.sum`, update Nix module metadata:
+
+```bash
+gomod2nix generate
+```
+
 Run from the flake:
 
 ```bash
