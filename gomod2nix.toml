@@ -1,6 +1,9 @@
 schema = 3
 
 [mod]
+  [mod."dario.cat/mergo"]
+    version = "v1.0.1"
+    hash = "sha256-wcG6+x0k6KzOSlaPA+1RFxa06/RIAePJTAjjuhLbImw="
   [mod."github.com/Masterminds/goutils"]
     version = "v1.1.1"
     hash = "sha256-MEvA5e099GUllILa5EXxa6toQexU1sz6eDZt2tiqpCY="
