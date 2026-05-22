@@ -1,0 +1,29 @@
+name: update gomod2nix
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      NIX_CONFIG: experimental-features = nix-command flakes
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: update gomod2nix metadata
+        run: nix develop --command gomod2nix generate
+
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          branch: update-gomod2nix
+          commit-message: update gomod2nix metadata
+          title: update gomod2nix metadata
