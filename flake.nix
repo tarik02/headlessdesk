@@ -4,6 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    gomod2nix.url = "github:nix-community/gomod2nix/v1.7.0";
+    gomod2nix.inputs.nixpkgs.follows = "nixpkgs";
+    gomod2nix.inputs.flake-utils.follows = "flake-utils";
   };
 
   outputs =
@@ -11,12 +14,14 @@
       self,
       nixpkgs,
       flake-utils,
+      gomod2nix,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = nixpkgs.legacyPackages.${system};
         go = pkgs.go_1_25;
+        gomod2nixPkgs = gomod2nix.legacyPackages.${system};
         freerdp = pkgs.freerdp.overrideAttrs (old: {
           cmakeFlags = (old.cmakeFlags or [ ]) ++ [
             "-DWITH_OPENH264=OFF"
@@ -26,15 +31,17 @@
         });
       in
       {
-        packages.default = (pkgs.buildGoModule.override { go = go; }) {
+        packages.default = gomod2nixPkgs.buildGoApplication {
           pname = "headlessdesk";
           version = "0.1.0";
 
           src = ./.;
+          pwd = ./.;
+          modules = ./gomod2nix.toml;
           modRoot = ".";
           subPackages = [ "cmd/headlessdesk" ];
 
-          vendorHash = "sha256-om6zBU65ZwPGqk921ku0P5hFnX4vpQnjLzS6euEo4HM=";
+          inherit go;
 
           nativeBuildInputs = [
             pkgs.makeWrapper
@@ -43,10 +50,11 @@
 
           buildInputs = [
             freerdp
+            pkgs.libei
             pkgs.libvncserver
           ];
 
-          env.CGO_ENABLED = "1";
+          CGO_ENABLED = "1";
 
           ldflags = [
             "-s"
@@ -76,8 +84,10 @@
             go
             pkgs.gopls
             pkgs.pkg-config
+            gomod2nixPkgs.gomod2nix
             freerdp
             pkgs.fuse3
+            pkgs.libei
             pkgs.libvncserver
           ];
 
