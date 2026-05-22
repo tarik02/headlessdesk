@@ -8,18 +8,15 @@ import (
 )
 
 var (
-	Version = "dev"
+	Version = "0.0.0-dev"
 	Commit  = ""
 	Date    = ""
-	BuiltBy = ""
 )
 
 type Info struct {
 	Version   string
 	Commit    string
 	Date      string
-	BuiltBy   string
-	Dirty     bool
 	GoOS      string
 	GoArch    string
 	GoVersion string
@@ -30,16 +27,12 @@ func Get() Info {
 		Version: Version,
 		Commit:  Commit,
 		Date:    Date,
-		BuiltBy: BuiltBy,
 		GoOS:    runtime.GOOS,
 		GoArch:  runtime.GOARCH,
 	}
 
 	if buildInfo, ok := debug.ReadBuildInfo(); ok {
 		info.GoVersion = buildInfo.GoVersion
-		if info.Version == "dev" && buildInfo.Main.Version != "" && buildInfo.Main.Version != "(devel)" {
-			info.Version = strings.TrimPrefix(buildInfo.Main.Version, "v")
-		}
 		for _, setting := range buildInfo.Settings {
 			switch setting.Key {
 			case "vcs.revision":
@@ -50,8 +43,6 @@ func Get() Info {
 				if info.Date == "" {
 					info.Date = setting.Value
 				}
-			case "vcs.modified":
-				info.Dirty = setting.Value == "true"
 			}
 		}
 	}
@@ -79,12 +70,6 @@ func Details() string {
 	}
 	if info.Date != "" {
 		lines = append(lines, "date: "+info.Date)
-	}
-	if info.BuiltBy != "" {
-		lines = append(lines, "built_by: "+info.BuiltBy)
-	}
-	if info.Dirty {
-		lines = append(lines, "dirty: true")
 	}
 	return strings.Join(lines, "\n")
 }

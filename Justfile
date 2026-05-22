@@ -3,16 +3,6 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
-build:
-    mkdir -p bin
-    version="$(jq -r '.version' package.json)"; \
-    commit="$(git rev-parse HEAD)"; \
-    date="$(git show -s --format=%cI HEAD)"; \
-    go build \
-        -ldflags "-s -w -X headlessdesk/internal/version.Version=$version -X headlessdesk/internal/version.Commit=$commit -X headlessdesk/internal/version.Date=$date -X headlessdesk/internal/version.BuiltBy=just" \
-        -o bin/headlessdesk \
-        ./cmd/headlessdesk
-
 goreleaser := "go run github.com/goreleaser/goreleaser/v2@v2.15.0"
 changeset := "npm --prefix .changeset exec --package @changesets/cli -- changeset"
 
@@ -27,6 +17,8 @@ binary target="linux-amd64":
 
 snapshot:
     {{goreleaser}} release --snapshot --clean --skip=publish
+
+build: build-linux-amd64
 
 changesets-install:
     npm install --package-lock-only --prefix .changeset
