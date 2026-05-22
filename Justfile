@@ -3,10 +3,6 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
-build:
-    mkdir -p bin
-    go build -o bin/headlessdesk ./cmd/headlessdesk
-
 goreleaser := "go run github.com/goreleaser/goreleaser/v2@v2.15.0"
 changeset := "npm --prefix .changeset exec --package @changesets/cli -- changeset"
 
@@ -21,6 +17,8 @@ binary target="linux-amd64":
 
 snapshot:
     {{goreleaser}} release --snapshot --clean --skip=publish
+
+build: build-linux-amd64
 
 changesets-install:
     npm install --package-lock-only --prefix .changeset

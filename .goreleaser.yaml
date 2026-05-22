@@ -17,6 +17,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
+      - -X headlessdesk/internal/version.Version={{ .Version }}
+      - -X headlessdesk/internal/version.Commit={{ .Commit }}
+      - -X headlessdesk/internal/version.Date={{ .Date }}
 
   - id: headlessdesk-darwin
     main: ./cmd/headlessdesk
@@ -31,6 +34,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
+      - -X headlessdesk/internal/version.Version={{ .Version }}
+      - -X headlessdesk/internal/version.Commit={{ .Commit }}
+      - -X headlessdesk/internal/version.Date={{ .Date }}
 
   - id: headlessdesk-windows-mingw
     main: ./cmd/headlessdesk
@@ -49,6 +55,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
+      - -X headlessdesk/internal/version.Version={{ .Version }}
+      - -X headlessdesk/internal/version.Commit={{ .Commit }}
+      - -X headlessdesk/internal/version.Date={{ .Date }}
 
 archives:
   - ids:
