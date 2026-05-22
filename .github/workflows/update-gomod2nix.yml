@@ -13,18 +13,26 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    env:
-      NIX_CONFIG: experimental-features = nix-command flakes
     steps:
       - uses: actions/checkout@v6
 
-      - uses: cachix/install-nix-action@v31
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: update gomod2nix metadata
-        run: nix develop --command gomod2nix generate
+        run: go run github.com/nix-community/gomod2nix@v1.7.0 generate
 
       - uses: peter-evans/create-pull-request@v8
         with:
+          token: ${{ steps.app-token.outputs.token }}
           branch: update-gomod2nix
           commit-message: update gomod2nix metadata
           title: update gomod2nix metadata
