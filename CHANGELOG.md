@@ -1,5 +1,11 @@
 # headlessdesk
 
+## 0.1.3
+
+### Patch Changes
+
+- db5cb03: embed build version metadata in binaries
+
 ## 0.1.2
 
 ### Patch Changes
