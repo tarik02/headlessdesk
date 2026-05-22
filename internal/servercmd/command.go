@@ -30,6 +30,7 @@ import (
 	"headlessdesk/internal/healthapi"
 	"headlessdesk/internal/httpapi"
 	"headlessdesk/internal/mcpapi"
+	"headlessdesk/internal/version"
 	"headlessdesk/internal/vnc"
 )
 
@@ -122,9 +123,11 @@ func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "headlessdesk",
 		Short:         "Remote desktop screenshot and control server",
+		Version:       version.Short(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	cmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 
 	setDefaults(v)
 
@@ -165,11 +168,22 @@ func New() *cobra.Command {
 	cmd.AddCommand(newServeCommand(v, &configPath))
 	cmd.AddCommand(newStdioMCPCommand(v, &configPath))
 	cmd.AddCommand(newMountCommand(v, &configPath))
+	cmd.AddCommand(newVersionCommand())
 	return cmd
 }
 
 func Execute() error {
 	return New().Execute()
+}
+
+func newVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print build version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Println(version.Details())
+		},
+	}
 }
 
 func newServeCommand(v *viper.Viper, configPath *string) *cobra.Command {

@@ -9,12 +9,13 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"headlessdesk/internal/control"
+	"headlessdesk/internal/version"
 )
 
 func NewServer(service *control.Service) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "headlessdesk",
-		Version: "1.0.0",
+		Version: version.Get().Version,
 	}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{

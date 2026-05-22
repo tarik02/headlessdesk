@@ -22,6 +22,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
         go = pkgs.go_1_25;
         gomod2nixPkgs = gomod2nix.legacyPackages.${system};
+        package = builtins.fromJSON (builtins.readFile ./package.json);
         freerdp = pkgs.freerdp.overrideAttrs (old: {
           cmakeFlags = (old.cmakeFlags or [ ]) ++ [
             "-DWITH_OPENH264=OFF"
@@ -33,7 +34,7 @@
       {
         packages.default = gomod2nixPkgs.buildGoApplication {
           pname = "headlessdesk";
-          version = "0.1.0";
+          version = package.version;
 
           src = ./.;
           pwd = ./.;
