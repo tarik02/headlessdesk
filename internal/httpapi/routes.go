@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"headlessdesk/internal/authz"
 	"headlessdesk/internal/control"
 )
 
@@ -50,21 +51,22 @@ type typeRequest struct {
 }
 
 type Handler struct {
-	service *control.Service
+	service    *control.Service
+	authorizer *authz.Authorizer
 }
 
-func RegisterRoutes(router gin.IRouter, service *control.Service) {
-	handler := &Handler{service: service}
+func RegisterRoutes(router gin.IRouter, service *control.Service, authorizer *authz.Authorizer) {
+	handler := &Handler{service: service, authorizer: authorizer}
 
-	router.GET("/screenshot", handler.screenshot)
-	router.POST("/screenshot", handler.screenshot)
-	router.POST("/click", handler.click)
-	router.POST("/double_click", handler.doubleClick)
-	router.POST("/drag", handler.drag)
-	router.POST("/move", handler.move)
-	router.POST("/scroll", handler.scroll)
-	router.POST("/keypress", handler.keypress)
-	router.POST("/type", handler.typeText)
+	router.GET("/screenshot", handler.requireScope("read:screenshot"), handler.screenshot)
+	router.POST("/screenshot", handler.requireScope("read:screenshot"), handler.screenshot)
+	router.POST("/click", handler.requireScope("write:mouse"), handler.click)
+	router.POST("/double_click", handler.requireScope("write:mouse"), handler.doubleClick)
+	router.POST("/drag", handler.requireScope("write:mouse"), handler.drag)
+	router.POST("/move", handler.requireScope("write:mouse"), handler.move)
+	router.POST("/scroll", handler.requireScope("write:mouse"), handler.scroll)
+	router.POST("/keypress", handler.requireScope("write:keyboard"), handler.keypress)
+	router.POST("/type", handler.requireScope("write:keyboard"), handler.typeText)
 }
 
 func (h *Handler) screenshot(c *gin.Context) {
@@ -198,6 +200,20 @@ func bindOptionalJSON(c *gin.Context, dst any) error {
 		return err
 	}
 	return nil
+}
+
+func (h *Handler) requireScope(scope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if err := h.authorizer.AuthorizeRequest(c.Request, authz.AudienceHTTP, scope); err != nil {
+			if err.StatusCode == http.StatusUnauthorized || err.StatusCode == http.StatusForbidden {
+				c.Header("WWW-Authenticate", "Bearer")
+			}
+			c.JSON(err.StatusCode, gin.H{"error": err.Error()})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }
 
 func (h *Handler) writeBadRequest(c *gin.Context, err error) {

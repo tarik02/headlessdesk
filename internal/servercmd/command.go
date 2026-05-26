@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
+	"headlessdesk/internal/authz"
 	"headlessdesk/internal/backendpreset"
 	"headlessdesk/internal/commandbackend"
 	"headlessdesk/internal/control"
@@ -42,10 +43,22 @@ type config struct {
 }
 
 type serverConfig struct {
-	ListenAddr    string `mapstructure:"listen_addr" yaml:"listen_addr"`
-	MCPPath       string `mapstructure:"mcp_path" yaml:"mcp_path"`
-	EnableHTTPAPI bool   `mapstructure:"enable_http_api" yaml:"enable_http_api"`
-	EnableMCPAPI  bool   `mapstructure:"enable_mcp_api" yaml:"enable_mcp_api"`
+	ListenAddr    string     `mapstructure:"listen_addr" yaml:"listen_addr"`
+	MCPPath       string     `mapstructure:"mcp_path" yaml:"mcp_path"`
+	EnableHTTPAPI bool       `mapstructure:"enable_http_api" yaml:"enable_http_api"`
+	EnableMCPAPI  bool       `mapstructure:"enable_mcp_api" yaml:"enable_mcp_api"`
+	Auth          authConfig `mapstructure:"auth" yaml:"auth"`
+}
+
+type authConfig struct {
+	Tokens []authTokenConfig `mapstructure:"tokens" yaml:"tokens"`
+}
+
+type authTokenConfig struct {
+	Token     string   `mapstructure:"token" yaml:"token"`
+	Audience  []string `mapstructure:"audience" yaml:"audience"`
+	Audiences []string `mapstructure:"audiences" yaml:"audiences"`
+	Scopes    []string `mapstructure:"scopes" yaml:"scopes"`
 }
 
 var defaultGinMode string
@@ -761,6 +774,9 @@ func validateServeConfig(cfg config) error {
 	if cfg.Server.EnableMCPAPI && !strings.HasPrefix(cfg.Server.MCPPath, "/") {
 		return errors.New("server.mcp_path must start with '/'")
 	}
+	if _, err := newAuthorizer(cfg.Server.Auth); err != nil {
+		return fmt.Errorf("server.auth: %w", err)
+	}
 	return nil
 }
 
@@ -775,14 +791,18 @@ func runServe(cfg config) error {
 	defer closeComponent(backends.component)
 
 	service := control.NewService(backends.component, backends.output, backends.input)
+	authorizer, err := newAuthorizer(cfg.Server.Auth)
+	if err != nil {
+		return fmt.Errorf("server.auth: %w", err)
+	}
 	router := gin.Default()
 
 	healthapi.RegisterRoutes(router, service)
 	if cfg.Server.EnableHTTPAPI {
-		httpapi.RegisterRoutes(router, service)
+		httpapi.RegisterRoutes(router, service, authorizer)
 	}
 	if cfg.Server.EnableMCPAPI {
-		router.Any(cfg.Server.MCPPath, gin.WrapH(mcpapi.NewHTTPHandler(service)))
+		router.Any(cfg.Server.MCPPath, gin.WrapH(mcpapi.NewHTTPHandler(service, authorizer)))
 	}
 
 	server := &http.Server{
@@ -832,6 +852,19 @@ func runStdioMCP(cfg config) error {
 	defer stop()
 
 	return mcpapi.RunStdio(ctx, control.NewService(backends.component, backends.output, backends.input))
+}
+
+func newAuthorizer(cfg authConfig) (*authz.Authorizer, error) {
+	tokens := make([]authz.Token, 0, len(cfg.Tokens))
+	for _, token := range cfg.Tokens {
+		tokens = append(tokens, authz.Token{
+			Value:     token.Token,
+			Audience:  token.Audience,
+			Audiences: token.Audiences,
+			Scopes:    token.Scopes,
+		})
+	}
+	return authz.New(tokens)
 }
 
 func startBackends(cfg config) (*startedBackends, error) {
