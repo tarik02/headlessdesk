@@ -20,6 +20,7 @@ import (
 	"unsafe"
 
 	"headlessdesk/internal/desktop"
+	"headlessdesk/internal/inputcode"
 )
 
 type Config struct {
@@ -242,32 +243,33 @@ func (s *Session) Screenshot() (image.Image, error) {
 	return img, nil
 }
 
-func (s *Session) SendKey(name string, down bool, repeat bool) error {
-	normalized := normalizeKeyName(name)
+func (s *Session) SendKey(name inputcode.KeyName, down bool, repeat bool) error {
+	normalized := normalizeKeyName(name.String())
 	if normalized == "" {
 		return errors.New("key name is required")
 	}
 
 	scancode, ok := lookupKeyScancode(normalized)
 	if !ok {
-		return fmt.Errorf("unsupported key name: %s", name)
+		return fmt.Errorf("unsupported key name: %s", name.String())
 	}
-	return s.SendKeyScancode(scancode, down, repeat)
+	parsedScancode, err := inputcode.ParseScancode(scancode)
+	if err != nil {
+		return err
+	}
+	return s.SendKeyScancode(parsedScancode, down, repeat)
 }
 
-func (s *Session) SendKeyScancode(scancode uint32, down bool, repeat bool) error {
+func (s *Session) SendKeyScancode(scancode inputcode.Scancode, down bool, repeat bool) error {
 	client := s.getClient()
 	if client == nil {
 		return errors.New("session is closed")
-	}
-	if scancode == 0 {
-		return errors.New("scancode must be non-zero")
 	}
 
 	s.inputMu.Lock()
 	defer s.inputMu.Unlock()
 
-	if err := sendKeyboardScancodeLocked(client, scancode, down, repeat); err != nil {
+	if err := sendKeyboardScancodeLocked(client, scancode.Uint32(), down, repeat); err != nil {
 		return err
 	}
 	return nil
@@ -441,7 +443,7 @@ func (s *Session) MoveMouse(x int, y int) error {
 	return nil
 }
 
-func (s *Session) SendMouseButton(button string, x int, y int, down bool) error {
+func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
 	client := s.getClient()
 	if client == nil {
 		return errors.New("session is closed")
@@ -452,7 +454,7 @@ func (s *Session) SendMouseButton(button string, x int, y int, down bool) error 
 		return err
 	}
 
-	flags, extended, err := mouseButtonFlags(button, down)
+	flags, extended, err := mouseButtonFlags(button.String(), down)
 	if err != nil {
 		return err
 	}

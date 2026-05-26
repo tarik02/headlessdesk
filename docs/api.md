@@ -7,7 +7,7 @@ The `serve` subcommand always mounts:
 The REST API can be enabled or disabled with `--enable-http-api`.
 When enabled, it mounts:
 
-- `POST /screenshot` returns the latest framebuffer as `image/png`, with optional cropping.
+- `GET /screenshot` or `POST /screenshot` returns the latest framebuffer as `image/png`, with optional cropping.
 - `POST /click` moves to a coordinate and clicks a mouse button.
 - `POST /double_click` moves to a coordinate and double clicks a mouse button.
 - `POST /drag` drags with the left mouse button along a path of points.

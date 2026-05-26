@@ -58,9 +58,16 @@ backends:
   # kde-input:
   #   type: "eis"
 
+  # Native Windows backend. Windows only. Uses Win32 APIs for local desktop
+  # screenshots and keyboard/mouse input, so it does not need RDP/VNC or command
+  # helper tools.
+  #
+  # windows-desktop:
+  #   type: "windows"
+
   # RDP backend. Can be used for input, output, or both.
   desktop:
-    # Backend type: rdp, vnc, command, kwin, or eis.
+    # Backend type: rdp, vnc, command, kwin, eis, or windows.
     type: "rdp"
 
     # Remote host/IP and port. Port 0 means default for backend type:

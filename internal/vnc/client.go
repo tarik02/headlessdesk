@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"headlessdesk/internal/desktop"
+	"headlessdesk/internal/inputcode"
 )
 
 // Config contains protocol-specific options for the VNC backend.
@@ -256,8 +257,8 @@ func (s *Session) Screenshot() (image.Image, error) {
 	return clone, nil
 }
 
-func (s *Session) SendKey(name string, down bool, repeat bool) error {
-	key, err := keyFromName(name)
+func (s *Session) SendKey(name inputcode.KeyName, down bool, repeat bool) error {
+	key, err := keyFromName(name.String())
 	if err != nil {
 		return err
 	}
@@ -269,7 +270,7 @@ func (s *Session) SendKey(name string, down bool, repeat bool) error {
 	})
 }
 
-func (s *Session) SendKeyScancode(scancode uint32, down bool, repeat bool) error {
+func (s *Session) SendKeyScancode(scancode inputcode.Scancode, down bool, repeat bool) error {
 	return fmt.Errorf("VNC does not support RDP scancode input: %d", scancode)
 }
 
@@ -302,12 +303,12 @@ func (s *Session) MoveMouse(x int, y int) error {
 	return s.sendPointer(mouseX, mouseY, 0)
 }
 
-func (s *Session) SendMouseButton(button string, x int, y int, down bool) error {
+func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
 	mouseX, mouseY, err := validatePointerPosition(x, y)
 	if err != nil {
 		return err
 	}
-	mask, err := buttonMask(button)
+	mask, err := buttonMask(button.String())
 	if err != nil {
 		return err
 	}
