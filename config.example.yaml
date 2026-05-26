@@ -9,7 +9,7 @@
 
 server:
   # HTTP listen address for /healthz, REST API, and optional MCP HTTP API.
-  listen_addr: ":8080"
+  listen_addr: "127.0.0.1:4243"
 
   # HTTP path for streamable MCP API when enable_mcp_api is true.
   mcp_path: "/mcp"

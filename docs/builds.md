@@ -41,6 +41,11 @@ are cross-compiled from Linux with posix MinGW and need FreeRDP and LibVNCClient
 target libraries in `pkg-config`. Binary packaging is configured in
 [`.goreleaser.yaml`](../.goreleaser.yaml).
 
+Windows release zips include both `headlessdesk.exe` for console use and
+`headlessdeskw.exe` for no-console background `serve` usage. The executable is
+linked with static MinGW compiler/thread runtimes where possible, while FreeRDP
+and LibVNCClient are still packaged as runtime DLLs.
+
 ## Dependencies
 
 For RDP, FreeRDP development files must be visible to `pkg-config`:

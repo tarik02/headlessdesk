@@ -210,7 +210,7 @@ func newServeCommand(v *viper.Viper, configPath *string) *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.String("listen-addr", ":8080", "HTTP listen address")
+	flags.String("listen-addr", "127.0.0.1:4243", "HTTP listen address")
 	flags.String("mcp-path", "/mcp", "HTTP path for the MCP streamable endpoint")
 	flags.Bool("enable-http-api", true, "enable the REST screenshot and input API")
 	flags.Bool("enable-mcp-api", true, "enable the MCP streamable HTTP API")
@@ -268,7 +268,7 @@ func resolveMountpoint(args []string) (string, error) {
 }
 
 func setDefaults(v *viper.Viper) {
-	v.SetDefault("server.listen_addr", ":8080")
+	v.SetDefault("server.listen_addr", "127.0.0.1:4243")
 	v.SetDefault("server.mcp_path", "/mcp")
 	v.SetDefault("server.enable_http_api", true)
 	v.SetDefault("server.enable_mcp_api", true)
@@ -763,6 +763,8 @@ func validateServeConfig(cfg config) error {
 }
 
 func runServe(cfg config) error {
+	hideStandaloneConsole()
+
 	backends, err := startBackends(cfg)
 	if err != nil {
 		return err
