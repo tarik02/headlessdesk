@@ -185,7 +185,7 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/mingw-root/lib -L${{ github.workspace }}/vcpkg/installed/x64-mingw-posix-dynamic/lib
         with:
           version: "~> v2"
-          args: build --snapshot --clean --single-target --id headlessdesk-windows-mingw-gui --output dist/headlessdeskw-windows-amd64.exe
+          args: build --snapshot --single-target --id headlessdesk-windows-mingw-gui --output dist/headlessdeskw-windows-amd64.exe
 
       - name: Collect runtime libraries
         run: |
