@@ -16,6 +16,11 @@ When enabled, it mounts:
 - `POST /keypress` presses and releases a named key.
 - `POST /type` types text into the remote session.
 
+If `server.auth.tokens` is non-empty, these REST endpoints require
+`Authorization: Bearer <token>` with an `http` audience. `/healthz` remains
+unauthenticated. REST scopes are `read:screenshot`, `write:mouse`, and
+`write:keyboard`; `read:*`, `write:*`, and `*` wildcards are supported.
+
 Example health response:
 
 ```json

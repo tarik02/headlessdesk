@@ -15,6 +15,11 @@ server:
   mcp_path: "/mcp"
   enable_http_api: true
   enable_mcp_api: true
+  auth:
+    tokens:
+      - token: "replace-with-a-long-random-secret"
+        audience: ["http", "mcp"]
+        scopes: ["read:*", "write:*"]
 
 input: "desktop"
 output: "desktop"
@@ -34,6 +39,20 @@ backends:
       keyboard_layout: 1033
       graphics_mode: "auto"
 ```
+
+`server.auth.tokens` is optional. When any token is configured, protected REST
+and MCP-over-HTTP endpoints require bearer auth. `audience` accepts `http`,
+`mcp`, or both; omitting it applies the token to both REST and MCP-over-HTTP.
+Bearer auth does not apply to `stdio-mcp`.
+
+Scopes use `action:resource` strings. `*` grants everything, `read:*` grants all
+read scopes, and `write:*` grants all write scopes. Current scopes are:
+
+- `read:status` for MCP `session_status`
+- `read:screenshot` for REST/MCP screenshots
+- `read:wait` for MCP `wait`
+- `write:mouse` for pointer, button, drag, and scroll actions
+- `write:keyboard` for keypress and text typing
 
 KDE/Wayland can use KWin for screenshots and EIS/libei for input:
 
