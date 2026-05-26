@@ -21,9 +21,9 @@ server:
   # Enable MCP streamable HTTP endpoint at mcp_path.
   enable_mcp_api: true
 
-  # Optional bearer auth for REST and MCP-over-HTTP. If no tokens are configured
-  # for an audience, that audience remains unauthenticated. Omit audience to
-  # apply a token to both "http" and "mcp".
+  # Optional bearer auth for REST and MCP-over-HTTP. If any token is configured,
+  # protected HTTP and MCP endpoints require bearer auth. Omit audience to apply
+  # a token to both "http" and "mcp".
   #
   # auth:
   #   tokens:

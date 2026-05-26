@@ -219,7 +219,7 @@ func requireToolScope[In, Out any](authorizer *authz.Authorizer, scope string, n
 }
 
 func authorizeTool(authorizer *authz.Authorizer, req *mcp.CallToolRequest, scope string) error {
-	if !authorizer.Enabled(authz.AudienceMCP) {
+	if !authorizer.Configured() {
 		return nil
 	}
 	if req == nil || req.Extra == nil || req.Extra.TokenInfo == nil {

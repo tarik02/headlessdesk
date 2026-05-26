@@ -40,10 +40,10 @@ backends:
       graphics_mode: "auto"
 ```
 
-`server.auth.tokens` is optional. When no token is configured for an audience,
-that audience remains unauthenticated. `audience` accepts `http`, `mcp`, or both;
-omitting it applies the token to both REST and MCP-over-HTTP. Bearer auth does
-not apply to `stdio-mcp`.
+`server.auth.tokens` is optional. When any token is configured, protected REST
+and MCP-over-HTTP endpoints require bearer auth. `audience` accepts `http`,
+`mcp`, or both; omitting it applies the token to both REST and MCP-over-HTTP.
+Bearer auth does not apply to `stdio-mcp`.
 
 Scopes use `action:resource` strings. `*` grants everything, `read:*` grants all
 read scopes, and `write:*` grants all write scopes. Current scopes are:

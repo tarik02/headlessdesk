@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestAuthorizeRequestOptionalPerAudience(t *testing.T) {
+func TestAuthorizeRequestRequiresAuthWhenAnyTokenConfigured(t *testing.T) {
 	authorizer, err := New([]Token{
 		{Value: "mcp-token", Audience: []string{"mcp"}, Scopes: []string{"read:*"}},
 	})
@@ -15,12 +15,18 @@ func TestAuthorizeRequestOptionalPerAudience(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/screenshot", nil)
-	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got != nil {
-		t.Fatalf("AuthorizeRequest() = %v, want nil when audience has no tokens", got)
+	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got == nil || got.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized even when token is for another audience", got)
 	}
 
+	req.Header.Set("Authorization", "Bearer mcp-token")
+	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got == nil || got.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized when token audience does not match", got)
+	}
+
+	req.Header.Del("Authorization")
 	if got := authorizer.AuthorizeRequest(req, AudienceMCP, "read:screenshot"); got == nil || got.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized for configured audience", got)
+		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized", got)
 	}
 }
 
@@ -110,8 +116,19 @@ func TestAuthorizeScopes(t *testing.T) {
 	if got := authorizer.AuthorizeScopes(AudienceMCP, "write:mouse", []string{"read:*"}); got == nil || got.StatusCode != http.StatusForbidden {
 		t.Fatalf("AuthorizeScopes() = %#v, want forbidden", got)
 	}
-	if got := authorizer.AuthorizeScopes(AudienceHTTP, "write:mouse", nil); got != nil {
-		t.Fatalf("AuthorizeScopes() = %v, want nil when audience has no tokens", got)
+	if got := authorizer.AuthorizeScopes(AudienceHTTP, "write:mouse", nil); got == nil || got.StatusCode != http.StatusForbidden {
+		t.Fatalf("AuthorizeScopes() = %#v, want forbidden when any token is configured", got)
+	}
+}
+
+func TestAuthorizeRequestOpenWhenNoTokensConfigured(t *testing.T) {
+	authorizer, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/screenshot", nil)
+	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got != nil {
+		t.Fatalf("AuthorizeRequest() = %v, want nil", got)
 	}
 }
 

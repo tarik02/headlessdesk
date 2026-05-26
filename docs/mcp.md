@@ -7,8 +7,9 @@
 
 The streamable HTTP API can be enabled or disabled with `--enable-mcp-api`.
 When enabled, it mounts at `--mcp-path`, which defaults to `/mcp`.
-If `server.auth.tokens` includes an `mcp` token, MCP-over-HTTP requires
-`Authorization: Bearer <token>`. Bearer auth does not apply to stdio MCP.
+If `server.auth.tokens` is non-empty, MCP-over-HTTP requires
+`Authorization: Bearer <token>` with an `mcp` audience. Bearer auth does not
+apply to stdio MCP.
 
 Run stdio MCP:
 

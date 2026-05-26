@@ -64,20 +64,15 @@ func New(tokens []Token) (*Authorizer, error) {
 	return a, nil
 }
 
-func (a *Authorizer) Enabled(audience Audience) bool {
+func (a *Authorizer) Configured() bool {
 	if a == nil {
 		return false
 	}
-	for _, token := range a.tokens {
-		if token.hasAudience(audience) {
-			return true
-		}
-	}
-	return false
+	return len(a.tokens) > 0
 }
 
 func (a *Authorizer) AuthorizeRequest(req *http.Request, audience Audience, requiredScope string) *Error {
-	if !a.Enabled(audience) {
+	if !a.Configured() {
 		return nil
 	}
 	bearer, ok := bearerToken(req.Header.Get("Authorization"))
@@ -95,7 +90,7 @@ func (a *Authorizer) AuthorizeRequest(req *http.Request, audience Audience, requ
 }
 
 func (a *Authorizer) AuthorizeScopes(audience Audience, requiredScope string, scopes []string) *Error {
-	if !a.Enabled(audience) {
+	if !a.Configured() {
 		return nil
 	}
 	if !scopesAllow(scopes, requiredScope) {
@@ -105,7 +100,7 @@ func (a *Authorizer) AuthorizeScopes(audience Audience, requiredScope string, sc
 }
 
 func (a *Authorizer) MCPMiddleware(next http.Handler) http.Handler {
-	if !a.Enabled(AudienceMCP) {
+	if !a.Configured() {
 		return next
 	}
 	verifier := func(_ context.Context, bearer string, _ *http.Request) (*mcpauth.TokenInfo, error) {
