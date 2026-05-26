@@ -111,6 +111,7 @@ var keyCodes = map[string]uint32{
 	"KEY_LEFTMETA":     125,
 	"KEY_RIGHTMETA":    126,
 	"KEY_COMPOSE":      127,
+	"KEY_MENU":         139,
 	"KEY_SLEEP":        142,
 	"KEY_WAKEUP":       143,
 	"KEY_EJECTCD":      161,

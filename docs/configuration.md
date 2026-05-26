@@ -21,7 +21,7 @@ output: "desktop"
 
 backends:
   desktop:
-    type: "rdp" # rdp, vnc, command, kwin, or eis
+    type: "rdp" # rdp, vnc, command, kwin, eis, or windows
     host: "127.0.0.1"
     port: 0 # 0 means backend default: 3389 for RDP, 5900 for VNC
     username: "gmtest"
@@ -54,6 +54,18 @@ desktop entry whose `Exec` resolves to the running binary and includes:
 
 ```ini
 X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
+```
+
+Windows can use the native local desktop backend for both screenshots and
+keyboard/mouse input:
+
+```yaml
+input: "local"
+output: "local"
+
+backends:
+  local:
+    type: "windows"
 ```
 
 Input and output can use different backend instances:

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"image"
 	"sync"
+
+	"headlessdesk/internal/inputcode"
 )
 
 var ErrCroppedOutputUnavailable = errors.New("cropped output is unavailable")
@@ -72,11 +74,11 @@ type CroppedOutputBackend interface {
 
 type InputBackend interface {
 	Component
-	SendKey(name string, down bool, repeat bool) error
-	SendKeyScancode(scancode uint32, down bool, repeat bool) error
+	SendKey(name inputcode.KeyName, down bool, repeat bool) error
+	SendKeyScancode(scancode inputcode.Scancode, down bool, repeat bool) error
 	TypeText(text string) error
 	MoveMouse(x int, y int) error
-	SendMouseButton(button string, x int, y int, down bool) error
+	SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error
 	SendMouseWheel(x int, y int, delta int, horizontal bool) error
 }
 

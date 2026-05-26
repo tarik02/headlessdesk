@@ -172,8 +172,8 @@ func (b *Backend) Close() error {
 			_ = b.obj.Call(interfaceName+".disconnect", 0, b.cookie).Err
 			b.cookie = 0
 		}
-			_ = b.conn.Close()
-			b.statusMu.Lock()
+		_ = b.conn.Close()
+		b.statusMu.Lock()
 		b.status.Connected = false
 		b.status.Active = false
 		b.status.Ready = false
@@ -204,20 +204,13 @@ func (b *Backend) MapInputPoint(outputWidth int, outputHeight int, x int, y int)
 	return clamp(mappedX, union.X, union.X+union.W-1), clamp(mappedY, union.Y, union.Y+union.H-1), nil
 }
 
-func (b *Backend) SendKey(name string, down bool, repeat bool) error {
-	code, err := inputcode.Key(name)
-	if err != nil {
-		return err
-	}
-	return b.SendKeyScancode(code, down, repeat)
+func (b *Backend) SendKey(name inputcode.KeyName, down bool, repeat bool) error {
+	return b.SendKeyScancode(name.Scancode(), down, repeat)
 }
 
-func (b *Backend) SendKeyScancode(scancode uint32, down bool, repeat bool) error {
-	if scancode == 0 {
-		return errors.New("scancode must be non-zero")
-	}
+func (b *Backend) SendKeyScancode(scancode inputcode.Scancode, down bool, repeat bool) error {
 	return b.withDevice("keyboard", func() *C.struct_ei_device { return b.keyboard }, func(device *C.struct_ei_device) {
-		C.ei_device_keyboard_key(device, C.uint32_t(scancode), C.bool(down))
+		C.ei_device_keyboard_key(device, C.uint32_t(scancode.Uint32()), C.bool(down))
 	})
 }
 
@@ -242,16 +235,12 @@ func (b *Backend) MoveMouse(x int, y int) error {
 	})
 }
 
-func (b *Backend) SendMouseButton(button string, x int, y int, down bool) error {
-	code, err := inputcode.MouseButton(button)
-	if err != nil {
-		return err
-	}
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
 	if err := b.MoveMouse(x, y); err != nil {
 		return err
 	}
 	return b.withDevice("button", func() *C.struct_ei_device { return b.button }, func(device *C.struct_ei_device) {
-		C.ei_device_button_button(device, C.uint32_t(code), C.bool(down))
+		C.ei_device_button_button(device, C.uint32_t(button.Code()), C.bool(down))
 	})
 }
 
