@@ -155,11 +155,11 @@ func NewServer(service *control.Service, authorizer *authz.Authorizer) *mcp.Serv
 	}))
 
 	type keypressArgs struct {
-		Key string `json:"key" jsonschema:"Named key to press and release"`
+		Key string `json:"key" jsonschema:"Named key or key chord to press and release, such as enter or Ctrl+L"`
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "keypress",
-		Description: "Press and release a named keyboard key",
+		Description: "Press and release a named keyboard key or key chord",
 	}, requireToolScope(authorizer, authz.ScopeWriteKeyboard, func(ctx context.Context, req *mcp.CallToolRequest, args keypressArgs) (*mcp.CallToolResult, any, error) {
 		if err := service.Keypress(control.KeypressCommand{Key: args.Key}); err != nil {
 			return nil, nil, err

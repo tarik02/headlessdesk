@@ -13,7 +13,7 @@ When enabled, it mounts:
 - `POST /drag` drags with the left mouse button along a path of points.
 - `POST /move` moves the remote pointer to an absolute position.
 - `POST /scroll` sends horizontal and/or vertical wheel events.
-- `POST /keypress` presses and releases a named key.
+- `POST /keypress` presses and releases a named key or key chord.
 - `POST /type` types text into the remote session.
 
 If `server.auth.tokens` is non-empty, these REST endpoints require
@@ -66,6 +66,10 @@ curl -X POST http://127.0.0.1:4243/type \
 curl -X POST http://127.0.0.1:4243/keypress \
   -H 'Content-Type: application/json' \
   -d '{"key":"enter"}'
+
+curl -X POST http://127.0.0.1:4243/keypress \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"Ctrl+L"}'
 
 curl -X POST http://127.0.0.1:4243/move \
   -H 'Content-Type: application/json' \
