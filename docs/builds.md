@@ -28,10 +28,12 @@ just build-windows-amd64
 just snapshot
 ```
 
-Linux builds include KWin screenshot and EIS input support. macOS and Windows
-builds include RDP, VNC, and command backends. Windows builds are cross-compiled
-from Linux with posix MinGW and need FreeRDP and LibVNCClient target libraries in
-`pkg-config`. Binary packaging is configured in [`.goreleaser.yaml`](../.goreleaser.yaml).
+Linux builds include KWin screenshot and EIS input support. Windows builds
+include the native local `windows` backend in addition to RDP, VNC, and command
+backends. macOS builds include RDP, VNC, and command backends. Windows builds
+are cross-compiled from Linux with posix MinGW and need FreeRDP and LibVNCClient
+target libraries in `pkg-config`. Binary packaging is configured in
+[`.goreleaser.yaml`](../.goreleaser.yaml).
 
 ## Dependencies
 

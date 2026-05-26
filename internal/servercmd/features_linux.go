@@ -15,6 +15,9 @@ func supportedBackendTypesDescription() string {
 }
 
 func validateBackendPlatform(name string, backendType string) error {
+	if backendType == "windows" {
+		return fmt.Errorf("backends.%s.type windows is only supported on windows", name)
+	}
 	return nil
 }
 
@@ -32,4 +35,8 @@ func startKWinEISBackend(name string) (desktop.InputBackend, error) {
 		return nil, fmt.Errorf("start KWin EIS backend %q: %w", name, err)
 	}
 	return backend, nil
+}
+
+func startWindowsBackend(name string) (desktop.Session, error) {
+	return nil, fmt.Errorf("backend %q type windows is only supported on windows", name)
 }

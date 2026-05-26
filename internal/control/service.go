@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"headlessdesk/internal/desktop"
+	"headlessdesk/internal/inputcode"
 )
 
 type Status = desktop.Status
@@ -106,8 +107,14 @@ func (s *Service) Screenshot(cmd ScreenshotCommand) ([]byte, error) {
 }
 
 func (s *Service) Click(cmd ClickCommand) error {
-	button := strings.TrimSpace(cmd.Button)
-	if button == "" {
+	buttonName, err := inputcode.ParseMouseButtonName(cmd.Button)
+	if err != nil {
+		if strings.TrimSpace(cmd.Button) == "" {
+			return errors.New("button is required")
+		}
+		return err
+	}
+	if buttonName.String() == "" {
 		return errors.New("button is required")
 	}
 	x, y, err := s.mapInputPoint(cmd.X, cmd.Y)
@@ -117,11 +124,11 @@ func (s *Service) Click(cmd ClickCommand) error {
 	if err := s.input.MoveMouse(x, y); err != nil {
 		return err
 	}
-	if err := s.input.SendMouseButton(button, x, y, true); err != nil {
+	if err := s.input.SendMouseButton(buttonName, x, y, true); err != nil {
 		return err
 	}
 	time.Sleep(clickDuration)
-	return s.input.SendMouseButton(button, x, y, false)
+	return s.input.SendMouseButton(buttonName, x, y, false)
 }
 
 func (s *Service) DoubleClick(cmd DoubleClickCommand) error {
@@ -141,22 +148,26 @@ func (s *Service) Drag(cmd DragCommand) error {
 		return err
 	}
 	start := path[0]
+	leftButton, err := inputcode.ParseMouseButtonName("left")
+	if err != nil {
+		return err
+	}
 	if err := s.input.MoveMouse(start.X, start.Y); err != nil {
 		return err
 	}
-	if err := s.input.SendMouseButton("left", start.X, start.Y, true); err != nil {
+	if err := s.input.SendMouseButton(leftButton, start.X, start.Y, true); err != nil {
 		return err
 	}
 	time.Sleep(clickDuration)
 	for _, point := range path[1:] {
 		if err := s.input.MoveMouse(point.X, point.Y); err != nil {
-			_ = s.input.SendMouseButton("left", point.X, point.Y, false)
+			_ = s.input.SendMouseButton(leftButton, point.X, point.Y, false)
 			return err
 		}
 		time.Sleep(dragStepPause)
 	}
 	end := path[len(path)-1]
-	return s.input.SendMouseButton("left", end.X, end.Y, false)
+	return s.input.SendMouseButton(leftButton, end.X, end.Y, false)
 }
 
 func (s *Service) Move(cmd MoveCommand) error {
@@ -193,11 +204,15 @@ func (s *Service) Keypress(cmd KeypressCommand) error {
 	if key == "" {
 		return errors.New("key is required")
 	}
-	if err := s.input.SendKey(key, true, false); err != nil {
+	keyName, err := inputcode.ParseKeyName(key)
+	if err != nil {
+		return err
+	}
+	if err := s.input.SendKey(keyName, true, false); err != nil {
 		return err
 	}
 	time.Sleep(keypressDuration)
-	return s.input.SendKey(key, false, false)
+	return s.input.SendKey(keyName, false, false)
 }
 
 func (s *Service) Type(cmd TypeCommand) error {

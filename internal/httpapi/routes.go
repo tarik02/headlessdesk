@@ -57,6 +57,7 @@ func RegisterRoutes(router gin.IRouter, service *control.Service) {
 	handler := &Handler{service: service}
 
 	router.GET("/screenshot", handler.screenshot)
+	router.POST("/screenshot", handler.screenshot)
 	router.POST("/click", handler.click)
 	router.POST("/double_click", handler.doubleClick)
 	router.POST("/drag", handler.drag)

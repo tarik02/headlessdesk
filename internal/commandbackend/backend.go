@@ -16,6 +16,7 @@ import (
 	"github.com/Masterminds/sprig/v3"
 
 	"headlessdesk/internal/desktop"
+	"headlessdesk/internal/inputcode"
 )
 
 const (
@@ -131,16 +132,16 @@ func (b *Backend) ScreenshotCrop(crop desktop.Crop) (image.Image, error) {
 	return img, nil
 }
 
-func (b *Backend) SendKey(name string, down bool, repeat bool) error {
-	_, err := b.run(b.cfg.Key, keyData{Key: name, Down: down, Repeat: repeat})
+func (b *Backend) SendKey(name inputcode.KeyName, down bool, repeat bool) error {
+	_, err := b.run(b.cfg.Key, keyData{Key: name.String(), Down: down, Repeat: repeat})
 	return err
 }
 
-func (b *Backend) SendKeyScancode(scancode uint32, down bool, repeat bool) error {
+func (b *Backend) SendKeyScancode(scancode inputcode.Scancode, down bool, repeat bool) error {
 	if !b.cfg.KeyScancode.Configured() {
 		return fmt.Errorf("command key_scancode is not configured: %d", scancode)
 	}
-	_, err := b.run(b.cfg.KeyScancode, scancodeData{Scancode: scancode, Down: down, Repeat: repeat})
+	_, err := b.run(b.cfg.KeyScancode, scancodeData{Scancode: scancode.Uint32(), Down: down, Repeat: repeat})
 	return err
 }
 
@@ -154,8 +155,8 @@ func (b *Backend) MoveMouse(x int, y int) error {
 	return err
 }
 
-func (b *Backend) SendMouseButton(button string, x int, y int, down bool) error {
-	_, err := b.run(b.cfg.MouseButton, buttonData{Button: button, X: x, Y: y, Down: down})
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+	_, err := b.run(b.cfg.MouseButton, buttonData{Button: button.String(), X: x, Y: y, Down: down})
 	return err
 }
 

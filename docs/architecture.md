@@ -18,6 +18,7 @@ Supported backend types:
   `org.kde.KWin.ScreenShot2` DBus API.
 - `eis`: implemented through `internal/kwineis`, KWin's private EIS remote
   desktop DBus endpoint, and libei.
+- `windows`: implemented through `internal/winlocal` and Win32 APIs.
 
 Backend configs can also extend built-in presets before validation. Presets are
 embedded YAML files loaded by `internal/backendpreset`, merged left-to-right,
@@ -65,6 +66,16 @@ alive, and sends pointer, button, wheel, key, and ASCII text events through that
 context. It reads EIS absolute-pointer regions and maps screenshot-space
 coordinates into the logical EIS coordinate space before sending input. It
 avoids ydotool/uinput for local Plasma Wayland control.
+
+## Windows Backend
+
+The Windows backend is available only on Windows and implements both screenshot
+output and keyboard/mouse input for the local desktop. Screenshots use GDI over
+the full virtual screen, including multi-monitor layouts. Input uses
+`SetCursorPos` and `SendInput` for pointer movement, buttons, wheel events,
+named keys, scancodes, and Unicode text. Screenshot coordinates are relative to
+the captured virtual-screen image; the backend translates them to the desktop's
+native virtual-screen origin before sending pointer input.
 
 ## Command Backend
 

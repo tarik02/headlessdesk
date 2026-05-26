@@ -10,36 +10,99 @@ type KeyEvent struct {
 	Down bool
 }
 
-func Key(name string) (uint32, error) {
+type Scancode uint32
+
+func (s Scancode) Uint32() uint32 {
+	return uint32(s)
+}
+
+func ParseScancode(scancode uint32) (Scancode, error) {
+	if scancode == 0 {
+		return 0, fmt.Errorf("scancode must be non-zero")
+	}
+	return Scancode(scancode), nil
+}
+
+type KeyName struct {
+	canonical string
+	code      uint32
+}
+
+func ParseKeyName(name string) (KeyName, error) {
 	canonical, ok := canonicalKeyName(name)
 	if !ok {
-		return 0, fmt.Errorf("unsupported key: %s", name)
+		return KeyName{}, fmt.Errorf("unsupported key: %s", name)
 	}
 	code, ok := keyCodes[canonical]
 	if !ok {
-		return 0, fmt.Errorf("unsupported key: %s", name)
+		return KeyName{}, fmt.Errorf("unsupported key: %s", name)
 	}
-	return code, nil
+	return KeyName{canonical: canonical, code: code}, nil
 }
 
-func MouseButton(button string) (uint32, error) {
+func (k KeyName) String() string {
+	return k.canonical
+}
+
+func (k KeyName) Code() uint32 {
+	return k.code
+}
+
+func (k KeyName) Scancode() Scancode {
+	return Scancode(k.code)
+}
+
+type MouseButtonName struct {
+	canonical string
+	code      uint32
+}
+
+func ParseMouseButtonName(button string) (MouseButtonName, error) {
 	canonical, ok := mouseButtonNames[normalize(button)]
 	if !ok {
-		return 0, fmt.Errorf("unsupported mouse button: %s", button)
+		return MouseButtonName{}, fmt.Errorf("unsupported mouse button: %s", button)
 	}
 	code, ok := keyCodes[canonical]
 	if !ok {
-		return 0, fmt.Errorf("unsupported mouse button: %s", button)
+		return MouseButtonName{}, fmt.Errorf("unsupported mouse button: %s", button)
 	}
-	return code, nil
+	return MouseButtonName{canonical: canonical, code: code}, nil
 }
 
-func MouseButtonIndex(button string) (int, error) {
-	code, err := MouseButton(button)
+func (b MouseButtonName) String() string {
+	return b.canonical
+}
+
+func (b MouseButtonName) Code() uint32 {
+	return b.code
+}
+
+func Key(name string) (uint32, error) {
+	key, err := ParseKeyName(name)
 	if err != nil {
 		return 0, err
 	}
-	switch code {
+	return key.Code(), nil
+}
+
+func MouseButton(button string) (uint32, error) {
+	mouseButton, err := ParseMouseButtonName(button)
+	if err != nil {
+		return 0, err
+	}
+	return mouseButton.Code(), nil
+}
+
+func MouseButtonIndex(button string) (int, error) {
+	mouseButton, err := ParseMouseButtonName(button)
+	if err != nil {
+		return 0, err
+	}
+	return MouseButtonNameIndex(mouseButton)
+}
+
+func MouseButtonNameIndex(button MouseButtonName) (int, error) {
+	switch button.Code() {
 	case keyCodes["BTN_LEFT"]:
 		return 0, nil
 	case keyCodes["BTN_RIGHT"]:
@@ -57,7 +120,7 @@ func MouseButtonIndex(button string) (int, error) {
 	case keyCodes["BTN_TASK"]:
 		return 7, nil
 	default:
-		return 0, fmt.Errorf("unsupported mouse button code: %d", code)
+		return 0, fmt.Errorf("unsupported mouse button code: %d", button.Code())
 	}
 }
 
