@@ -145,6 +145,9 @@ schema = 3
   [mod."github.com/yosida95/uritemplate/v3"]
     version = "v3.0.2"
     hash = "sha256-znUsCrfogPwAUNsdxBL93jIW/joercUm7RxKSExuWTM="
+  [mod."github.com/zzl/go-win32api/v2"]
+    version = "v2.2.0"
+    hash = "sha256-DJPn6Te8WKbhhkrAZYwmb3et99ku/5H/fIPOk9d4l+Q="
   [mod."go.uber.org/atomic"]
     version = "v1.9.0"
     hash = "sha256-D8OtLaViqPShz1w8ijhIHmjw9xVaRu0qD2hXKj63r4Q="
