@@ -48,6 +48,8 @@ type serverConfig struct {
 	EnableMCPAPI  bool   `mapstructure:"enable_mcp_api" yaml:"enable_mcp_api"`
 }
 
+var defaultGinMode string
+
 type backendConfig struct {
 	Extends  []string      `mapstructure:"extends" yaml:"extends"`
 	Type     string        `mapstructure:"type" yaml:"type"`
@@ -764,6 +766,7 @@ func validateServeConfig(cfg config) error {
 
 func runServe(cfg config) error {
 	hideStandaloneConsole()
+	configureGinMode()
 
 	backends, err := startBackends(cfg)
 	if err != nil {
@@ -1061,6 +1064,13 @@ func shutdownHTTPServer(server *http.Server) error {
 		return fmt.Errorf("http shutdown error: %w", err)
 	}
 	return nil
+}
+
+func configureGinMode() {
+	if defaultGinMode == "" {
+		return
+	}
+	gin.SetMode(defaultGinMode)
 }
 
 func logComponentEnd(name string, component desktop.Component) {
