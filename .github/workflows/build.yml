@@ -175,14 +175,20 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/mingw-root/lib -L${{ github.workspace }}/vcpkg/installed/x64-mingw-posix-dynamic/lib
         with:
           version: "~> v2"
-          args: build --snapshot --clean --single-target --id headlessdesk-windows-mingw --output dist/headlessdesk-windows-amd64.exe
+          args: build --snapshot --clean --single-target --id headlessdesk-windows-mingw --id headlessdesk-windows-mingw-gui
 
       - name: Collect runtime libraries
         run: |
           mkdir -p dist/headlessdesk-windows-amd64
-          cp dist/headlessdesk-windows-amd64.exe dist/headlessdesk-windows-amd64/
+          cp dist/headlessdesk-windows-mingw_windows_amd64*/headlessdesk.exe dist/headlessdesk-windows-amd64/headlessdesk.exe
+          cp dist/headlessdesk-windows-mingw-gui_windows_amd64*/headlessdeskw.exe dist/headlessdesk-windows-amd64/headlessdeskw.exe
+          cp deploy/windows/*.ps1 dist/headlessdesk-windows-amd64/
           cp vcpkg/installed/x64-mingw-posix-dynamic/bin/*.dll dist/headlessdesk-windows-amd64/
           cp mingw-root/bin/*.dll dist/headlessdesk-windows-amd64/
+          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+            path="$(x86_64-w64-mingw32-gcc -print-file-name="$dll")"
+            if [ -f "$path" ]; then cp "$path" dist/headlessdesk-windows-amd64/; fi
+          done
           (cd dist && zip -r headlessdesk-windows-amd64.zip headlessdesk-windows-amd64)
 
       - uses: actions/upload-artifact@v7

@@ -55,6 +55,30 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
+      - -linkmode external -extldflags "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic"
+      - -X headlessdesk/internal/version.Version={{ .Version }}
+      - -X headlessdesk/internal/version.Commit={{ .Commit }}
+      - -X headlessdesk/internal/version.Date={{ .Date }}
+
+  - id: headlessdesk-windows-mingw-gui
+    main: ./cmd/headlessdesk
+    binary: headlessdeskw
+    goos:
+      - windows
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc-posix
+      - CXX=x86_64-w64-mingw32-g++-posix
+      - PKG_CONFIG_ALLOW_CROSS=1
+      - CGO_CPPFLAGS=-D__STDC_NO_THREADS__ -D__STDC_NO_ATOMICS__
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -H=windowsgui
+      - -linkmode external -extldflags "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic"
       - -X headlessdesk/internal/version.Version={{ .Version }}
       - -X headlessdesk/internal/version.Commit={{ .Commit }}
       - -X headlessdesk/internal/version.Date={{ .Date }}
@@ -64,6 +88,7 @@ archives:
       - headlessdesk-linux
       - headlessdesk-darwin
       - headlessdesk-windows-mingw
+      - headlessdesk-windows-mingw-gui
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats:
       - tar.gz

@@ -13,7 +13,7 @@ Run an RDP-backed HTTP server:
 
 ```bash
 headlessdesk serve \
-  --listen-addr :8080 \
+  --listen-addr 127.0.0.1:4243 \
   --backend-type rdp \
   --remote-host 127.0.0.1 \
   --remote-port 3391 \
@@ -27,7 +27,7 @@ headlessdesk serve \
 Capture a screenshot:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/screenshot --output screenshot.png
+curl -X POST http://127.0.0.1:4243/screenshot --output screenshot.png
 ```
 
 ## Documentation
@@ -36,5 +36,6 @@ curl -X POST http://127.0.0.1:8080/screenshot --output screenshot.png
 - [configuration](docs/configuration.md)
 - [HTTP API](docs/api.md)
 - [MCP API](docs/mcp.md)
+- [Windows service and autostart](docs/windows-service.md)
 - [FUSE filesystem](docs/fuse.md)
 - [architecture and backends](docs/architecture.md)

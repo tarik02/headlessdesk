@@ -54,27 +54,27 @@ can translate those coordinates before sending input.
 ## Examples
 
 ```bash
-curl -X POST http://127.0.0.1:8080/type \
+curl -X POST http://127.0.0.1:4243/type \
   -H 'Content-Type: application/json' \
   -d '{"text":"hello from http"}'
 
-curl -X POST http://127.0.0.1:8080/keypress \
+curl -X POST http://127.0.0.1:4243/keypress \
   -H 'Content-Type: application/json' \
   -d '{"key":"enter"}'
 
-curl -X POST http://127.0.0.1:8080/move \
+curl -X POST http://127.0.0.1:4243/move \
   -H 'Content-Type: application/json' \
   -d '{"x":640,"y":360}'
 
-curl -X POST http://127.0.0.1:8080/click \
+curl -X POST http://127.0.0.1:4243/click \
   -H 'Content-Type: application/json' \
   -d '{"x":640,"y":360,"button":"left"}'
 
-curl -X POST http://127.0.0.1:8080/scroll \
+curl -X POST http://127.0.0.1:4243/scroll \
   -H 'Content-Type: application/json' \
   -d '{"x":640,"y":360,"scrollY":120}'
 
-curl -X POST http://127.0.0.1:8080/screenshot \
+curl -X POST http://127.0.0.1:4243/screenshot \
   -H 'Content-Type: application/json' \
   -d '{"crop":{"x":100,"y":100,"w":400,"h":300}}' \
   --output cropped.png

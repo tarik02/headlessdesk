@@ -41,6 +41,9 @@ build-darwin-arm64:
 build-windows-amd64:
     just binary windows-amd64
 
+build-windows-amd64-gui:
+    TARGET=windows_amd64 {{goreleaser}} build --snapshot --clean --single-target --id headlessdesk-windows-mingw-gui --output dist/headlessdeskw-windows-amd64.exe
+
 install-bin: build
     install -Dm755 bin/headlessdesk "$HOME/.local/bin/headlessdesk"
 
