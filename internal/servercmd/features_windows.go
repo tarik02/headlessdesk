@@ -1,4 +1,4 @@
-//go:build !linux && !windows
+//go:build windows
 
 package servercmd
 
@@ -6,18 +6,17 @@ import (
 	"fmt"
 
 	"headlessdesk/internal/desktop"
+	"headlessdesk/internal/winlocal"
 )
 
 func supportedBackendTypesDescription() string {
-	return "rdp, vnc, or command"
+	return "rdp, vnc, command, or windows"
 }
 
 func validateBackendPlatform(name string, backendType string) error {
 	switch backendType {
 	case "kwin", "eis":
 		return fmt.Errorf("backends.%s.type %s is only supported on linux", name, backendType)
-	case "windows":
-		return fmt.Errorf("backends.%s.type windows is only supported on windows", name)
 	default:
 		return nil
 	}
@@ -32,5 +31,9 @@ func startKWinEISBackend(name string) (desktop.InputBackend, error) {
 }
 
 func startWindowsBackend(name string) (desktop.Session, error) {
-	return nil, fmt.Errorf("backend %q type windows is only supported on windows", name)
+	backend, err := winlocal.New()
+	if err != nil {
+		return nil, fmt.Errorf("start Windows backend %q: %w", name, err)
+	}
+	return backend, nil
 }

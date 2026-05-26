@@ -8,7 +8,11 @@ import (
 )
 
 func ydotoolButton(button string) (int, error) {
-	return inputcode.MouseButtonIndex(button)
+	name, err := inputcode.ParseMouseButtonName(button)
+	if err != nil {
+		return 0, err
+	}
+	return inputcode.MouseButtonNameIndex(name)
 }
 
 func ydotoolButtonEvent(button string, down bool) (string, error) {

@@ -2,9 +2,9 @@
 
 Minimal headless remote-desktop control server.
 
-`headlessdesk` connects to RDP, VNC, command-backed, or KWin desktop backends, keeps a
-framebuffer in memory when the output backend provides one, and exposes
-screenshots plus keyboard/mouse input through HTTP and MCP.
+`headlessdesk` connects to RDP, VNC, command-backed, KWin, or native Windows
+desktop backends, keeps a framebuffer in memory when the output backend provides
+one, and exposes screenshots plus keyboard/mouse input through HTTP and MCP.
 Command backends can run locally or over one persistent SSH client connection.
 
 ## Quick Start
