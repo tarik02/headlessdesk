@@ -1,5 +1,11 @@
 # headlessdesk
 
+## 0.3.0
+
+### Minor Changes
+
+- e6ca0e2: Add optional config-backed bearer authentication for REST and MCP-over-HTTP endpoints, including multiple tokens, per-audience tokens, and scoped read/write access.
+
 ## 0.2.1
 
 ### Patch Changes
