@@ -1,5 +1,11 @@
 # headlessdesk
 
+## 0.2.0
+
+### Minor Changes
+
+- 0b56e54: Add native Windows backend support for local screenshots and keyboard/mouse input.
+
 ## 0.1.3
 
 ### Patch Changes
