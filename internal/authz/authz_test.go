@@ -8,33 +8,33 @@ import (
 
 func TestAuthorizeRequestRequiresAuthWhenAnyTokenConfigured(t *testing.T) {
 	authorizer, err := New([]Token{
-		{Value: "mcp-token", Audience: []string{"mcp"}, Scopes: []string{"read:*"}},
+		{Value: "mcp-token", Audience: []string{"mcp"}, Scopes: []string{string(ScopeReadAll)}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/screenshot", nil)
-	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got == nil || got.StatusCode != http.StatusUnauthorized {
+	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, ScopeReadScreenshot); got == nil || got.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized even when token is for another audience", got)
 	}
 
 	req.Header.Set("Authorization", "Bearer mcp-token")
-	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got == nil || got.StatusCode != http.StatusUnauthorized {
+	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, ScopeReadScreenshot); got == nil || got.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized when token audience does not match", got)
 	}
 
 	req.Header.Del("Authorization")
-	if got := authorizer.AuthorizeRequest(req, AudienceMCP, "read:screenshot"); got == nil || got.StatusCode != http.StatusUnauthorized {
+	if got := authorizer.AuthorizeRequest(req, AudienceMCP, ScopeReadScreenshot); got == nil || got.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("AuthorizeRequest() = %#v, want unauthorized", got)
 	}
 }
 
 func TestAuthorizeRequestMultipleTokensAndScopes(t *testing.T) {
 	authorizer, err := New([]Token{
-		{Value: "read-http", Audience: []string{"http"}, Scopes: []string{"read:*"}},
-		{Value: "mouse-both", Audience: []string{"http", "mcp"}, Scopes: []string{"write:mouse"}},
-		{Value: "admin", Scopes: []string{"*"}},
+		{Value: "read-http", Audience: []string{"http"}, Scopes: []string{string(ScopeReadAll)}},
+		{Value: "mouse-both", Audience: []string{"http", "mcp"}, Scopes: []string{string(ScopeWriteMouse)}},
+		{Value: "admin", Scopes: []string{string(ScopeAll)}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +44,7 @@ func TestAuthorizeRequestMultipleTokensAndScopes(t *testing.T) {
 		name          string
 		token         string
 		audience      Audience
-		scope         string
+		scope         Scope
 		wantStatus    int
 		wantNoAuthErr bool
 	}{
@@ -52,35 +52,35 @@ func TestAuthorizeRequestMultipleTokensAndScopes(t *testing.T) {
 			name:          "read wildcard allows screenshot",
 			token:         "read-http",
 			audience:      AudienceHTTP,
-			scope:         "read:screenshot",
+			scope:         ScopeReadScreenshot,
 			wantNoAuthErr: true,
 		},
 		{
 			name:       "read token cannot write mouse",
 			token:      "read-http",
 			audience:   AudienceHTTP,
-			scope:      "write:mouse",
+			scope:      ScopeWriteMouse,
 			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "http token cannot authenticate to mcp",
 			token:      "read-http",
 			audience:   AudienceMCP,
-			scope:      "read:screenshot",
+			scope:      ScopeReadScreenshot,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:          "both audience token works for mcp",
 			token:         "mouse-both",
 			audience:      AudienceMCP,
-			scope:         "write:mouse",
+			scope:         ScopeWriteMouse,
 			wantNoAuthErr: true,
 		},
 		{
 			name:          "global wildcard allows any scope",
 			token:         "admin",
 			audience:      AudienceMCP,
-			scope:         "write:keyboard",
+			scope:         ScopeWriteKeyboard,
 			wantNoAuthErr: true,
 		},
 	} {
@@ -104,19 +104,19 @@ func TestAuthorizeRequestMultipleTokensAndScopes(t *testing.T) {
 
 func TestAuthorizeScopes(t *testing.T) {
 	authorizer, err := New([]Token{
-		{Value: "token", Audience: []string{"mcp"}, Scopes: []string{"read:*"}},
+		{Value: "token", Audience: []string{"mcp"}, Scopes: []string{string(ScopeReadAll)}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if got := authorizer.AuthorizeScopes(AudienceMCP, "read:screenshot", []string{"read:*"}); got != nil {
+	if got := authorizer.AuthorizeScopes(ScopeReadScreenshot, []string{string(ScopeReadAll)}); got != nil {
 		t.Fatalf("AuthorizeScopes() = %v, want nil", got)
 	}
-	if got := authorizer.AuthorizeScopes(AudienceMCP, "write:mouse", []string{"read:*"}); got == nil || got.StatusCode != http.StatusForbidden {
+	if got := authorizer.AuthorizeScopes(ScopeWriteMouse, []string{string(ScopeReadAll)}); got == nil || got.StatusCode != http.StatusForbidden {
 		t.Fatalf("AuthorizeScopes() = %#v, want forbidden", got)
 	}
-	if got := authorizer.AuthorizeScopes(AudienceHTTP, "write:mouse", nil); got == nil || got.StatusCode != http.StatusForbidden {
+	if got := authorizer.AuthorizeScopes(ScopeWriteMouse, nil); got == nil || got.StatusCode != http.StatusForbidden {
 		t.Fatalf("AuthorizeScopes() = %#v, want forbidden when any token is configured", got)
 	}
 }
@@ -127,7 +127,7 @@ func TestAuthorizeRequestOpenWhenNoTokensConfigured(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "/screenshot", nil)
-	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, "read:screenshot"); got != nil {
+	if got := authorizer.AuthorizeRequest(req, AudienceHTTP, ScopeReadScreenshot); got != nil {
 		t.Fatalf("AuthorizeRequest() = %v, want nil", got)
 	}
 }
@@ -137,8 +137,8 @@ func TestInvalidConfig(t *testing.T) {
 		name  string
 		token Token
 	}{
-		{name: "empty token", token: Token{Scopes: []string{"*"}}},
-		{name: "bad audience", token: Token{Value: "secret", Audience: []string{"ssh"}, Scopes: []string{"*"}}},
+		{name: "empty token", token: Token{Scopes: []string{string(ScopeAll)}}},
+		{name: "bad audience", token: Token{Value: "secret", Audience: []string{"ssh"}, Scopes: []string{string(ScopeAll)}}},
 		{name: "bad scope", token: Token{Value: "secret", Scopes: []string{"read screenshot"}}},
 		{name: "bad scope verb", token: Token{Value: "secret", Scopes: []string{"admin:*"}}},
 		{name: "bad scope shape", token: Token{Value: "secret", Scopes: []string{"read:one:two"}}},

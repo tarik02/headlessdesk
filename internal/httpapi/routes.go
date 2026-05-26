@@ -58,15 +58,15 @@ type Handler struct {
 func RegisterRoutes(router gin.IRouter, service *control.Service, authorizer *authz.Authorizer) {
 	handler := &Handler{service: service, authorizer: authorizer}
 
-	router.GET("/screenshot", handler.requireScope("read:screenshot"), handler.screenshot)
-	router.POST("/screenshot", handler.requireScope("read:screenshot"), handler.screenshot)
-	router.POST("/click", handler.requireScope("write:mouse"), handler.click)
-	router.POST("/double_click", handler.requireScope("write:mouse"), handler.doubleClick)
-	router.POST("/drag", handler.requireScope("write:mouse"), handler.drag)
-	router.POST("/move", handler.requireScope("write:mouse"), handler.move)
-	router.POST("/scroll", handler.requireScope("write:mouse"), handler.scroll)
-	router.POST("/keypress", handler.requireScope("write:keyboard"), handler.keypress)
-	router.POST("/type", handler.requireScope("write:keyboard"), handler.typeText)
+	router.GET("/screenshot", handler.requireScope(authz.ScopeReadScreenshot), handler.screenshot)
+	router.POST("/screenshot", handler.requireScope(authz.ScopeReadScreenshot), handler.screenshot)
+	router.POST("/click", handler.requireScope(authz.ScopeWriteMouse), handler.click)
+	router.POST("/double_click", handler.requireScope(authz.ScopeWriteMouse), handler.doubleClick)
+	router.POST("/drag", handler.requireScope(authz.ScopeWriteMouse), handler.drag)
+	router.POST("/move", handler.requireScope(authz.ScopeWriteMouse), handler.move)
+	router.POST("/scroll", handler.requireScope(authz.ScopeWriteMouse), handler.scroll)
+	router.POST("/keypress", handler.requireScope(authz.ScopeWriteKeyboard), handler.keypress)
+	router.POST("/type", handler.requireScope(authz.ScopeWriteKeyboard), handler.typeText)
 }
 
 func (h *Handler) screenshot(c *gin.Context) {
@@ -202,7 +202,7 @@ func bindOptionalJSON(c *gin.Context, dst any) error {
 	return nil
 }
 
-func (h *Handler) requireScope(scope string) gin.HandlerFunc {
+func (h *Handler) requireScope(scope authz.Scope) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if err := h.authorizer.AuthorizeRequest(c.Request, authz.AudienceHTTP, scope); err != nil {
 			if err.StatusCode == http.StatusUnauthorized || err.StatusCode == http.StatusForbidden {

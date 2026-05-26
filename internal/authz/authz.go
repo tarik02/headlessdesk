@@ -21,6 +21,19 @@ const (
 	AudienceMCP  Audience = "mcp"
 )
 
+type Scope string
+
+const (
+	ScopeAll            Scope = "*"
+	ScopeReadAll        Scope = "read:*"
+	ScopeReadStatus     Scope = "read:status"
+	ScopeReadScreenshot Scope = "read:screenshot"
+	ScopeReadWait       Scope = "read:wait"
+	ScopeWriteAll       Scope = "write:*"
+	ScopeWriteMouse     Scope = "write:mouse"
+	ScopeWriteKeyboard  Scope = "write:keyboard"
+)
+
 type Token struct {
 	Value     string
 	Audience  []string
@@ -35,14 +48,14 @@ type Authorizer struct {
 type storedToken struct {
 	value     string
 	audiences map[Audience]bool
-	scopes    []string
+	scopes    []Scope
 	userID    string
 }
 
 type Error struct {
 	StatusCode int
 	Message    string
-	Scope      string
+	Scope      Scope
 }
 
 func (e *Error) Error() string {
@@ -71,7 +84,7 @@ func (a *Authorizer) Configured() bool {
 	return len(a.tokens) > 0
 }
 
-func (a *Authorizer) AuthorizeRequest(req *http.Request, audience Audience, requiredScope string) *Error {
+func (a *Authorizer) AuthorizeRequest(req *http.Request, audience Audience, requiredScope Scope) *Error {
 	if !a.Configured() {
 		return nil
 	}
@@ -89,11 +102,11 @@ func (a *Authorizer) AuthorizeRequest(req *http.Request, audience Audience, requ
 	return nil
 }
 
-func (a *Authorizer) AuthorizeScopes(audience Audience, requiredScope string, scopes []string) *Error {
+func (a *Authorizer) AuthorizeScopes(requiredScope Scope, scopes []string) *Error {
 	if !a.Configured() {
 		return nil
 	}
-	if !scopesAllow(scopes, requiredScope) {
+	if !scopesAllow(scopesFromStrings(scopes), requiredScope) {
 		return &Error{StatusCode: http.StatusForbidden, Message: "insufficient scope", Scope: requiredScope}
 	}
 	return nil
@@ -109,7 +122,7 @@ func (a *Authorizer) MCPMiddleware(next http.Handler) http.Handler {
 			return nil, mcpauth.ErrInvalidToken
 		}
 		return &mcpauth.TokenInfo{
-			Scopes:     append([]string(nil), token.scopes...),
+			Scopes:     scopeStrings(token.scopes),
 			Expiration: time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC),
 			UserID:     token.userID,
 		}, nil
@@ -144,13 +157,13 @@ func normalizeToken(token Token) (storedToken, error) {
 		return storedToken{}, err
 	}
 
-	scopes := make([]string, 0, len(token.Scopes))
+	scopes := make([]Scope, 0, len(token.Scopes))
 	for _, scope := range token.Scopes {
 		scope = strings.TrimSpace(scope)
-		if !ValidScope(scope) {
+		if !ValidScope(Scope(scope)) {
 			return storedToken{}, fmt.Errorf("invalid scope %q", scope)
 		}
-		scopes = append(scopes, scope)
+		scopes = append(scopes, Scope(scope))
 	}
 
 	sum := sha256.Sum256([]byte(value))
@@ -194,34 +207,56 @@ func constantTimeEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-func ValidScope(scope string) bool {
-	if scope == "*" {
+func ValidScope(scope Scope) bool {
+	if scope == ScopeAll {
 		return true
 	}
-	if scope == "" || strings.ContainsAny(scope, " \t\r\n") || strings.Count(scope, ":") != 1 {
-		return false
-	}
-	verb, resource, ok := strings.Cut(scope, ":")
+	verb, resource, ok := parseScope(scope)
 	return ok && (verb == "read" || verb == "write") && resource != ""
 }
 
-func ScopeAllows(grant string, required string) bool {
-	if required == "" || grant == "*" || grant == required {
+func ScopeAllows(grant Scope, required Scope) bool {
+	if required == "" || grant == ScopeAll || grant == required {
 		return true
 	}
-	grantVerb, grantResource, ok := strings.Cut(grant, ":")
+	grantVerb, grantResource, ok := parseScope(grant)
 	if !ok || grantResource != "*" {
 		return false
 	}
-	requiredVerb, _, ok := strings.Cut(required, ":")
+	requiredVerb, _, ok := parseScope(required)
 	return ok && grantVerb == requiredVerb
 }
 
-func scopesAllow(scopes []string, required string) bool {
+func scopesAllow(scopes []Scope, required Scope) bool {
 	for _, scope := range scopes {
 		if ScopeAllows(scope, required) {
 			return true
 		}
 	}
 	return false
+}
+
+func scopesFromStrings(values []string) []Scope {
+	scopes := make([]Scope, 0, len(values))
+	for _, value := range values {
+		scopes = append(scopes, Scope(value))
+	}
+	return scopes
+}
+
+func scopeStrings(scopes []Scope) []string {
+	values := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		values = append(values, string(scope))
+	}
+	return values
+}
+
+func parseScope(scope Scope) (verb string, resource string, ok bool) {
+	value := string(scope)
+	if value == "" || strings.ContainsAny(value, " \t\r\n") || strings.Count(value, ":") != 1 {
+		return "", "", false
+	}
+	verb, resource, ok = strings.Cut(value, ":")
+	return verb, resource, ok
 }
