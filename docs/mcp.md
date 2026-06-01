@@ -38,6 +38,9 @@ The HTTP and stdio MCP transports expose the same tool set:
 - `type`
 - `wait`
 
+The `keypress` tool accepts a single key such as `enter` or a `+`-delimited
+chord such as `Ctrl+L`, `Ctrl+Shift+P`, or `Alt+Tab`.
+
 MCP tool scopes are `read:status` for `session_status`, `read:screenshot` for
 `screenshot`, `read:wait` for `wait`, `write:mouse` for pointer/button/wheel
 tools, and `write:keyboard` for keypress/text tools. `read:*`, `write:*`, and

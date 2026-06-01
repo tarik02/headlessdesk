@@ -200,19 +200,35 @@ func (s *Service) Scroll(cmd ScrollCommand) error {
 }
 
 func (s *Service) Keypress(cmd KeypressCommand) error {
-	key := strings.TrimSpace(cmd.Key)
-	if key == "" {
-		return errors.New("key is required")
-	}
-	keyName, err := inputcode.ParseKeyName(key)
+	chord, err := inputcode.ParseKeyChord(cmd.Key)
 	if err != nil {
 		return err
 	}
-	if err := s.input.SendKey(keyName, true, false); err != nil {
-		return err
+	return s.sendKeyChord(chord)
+}
+
+func (s *Service) sendKeyChord(chord inputcode.KeyChord) error {
+	keys := chord.Keys()
+	pressed := make([]inputcode.KeyName, 0, len(keys))
+	for _, key := range keys {
+		if err := s.input.SendKey(key, true, false); err != nil {
+			_ = s.releaseKeys(pressed)
+			return err
+		}
+		pressed = append(pressed, key)
 	}
 	time.Sleep(keypressDuration)
-	return s.input.SendKey(keyName, false, false)
+	return s.releaseKeys(pressed)
+}
+
+func (s *Service) releaseKeys(keys []inputcode.KeyName) error {
+	var releaseErr error
+	for i := len(keys) - 1; i >= 0; i-- {
+		if err := s.input.SendKey(keys[i], false, false); err != nil {
+			releaseErr = errors.Join(releaseErr, err)
+		}
+	}
+	return releaseErr
 }
 
 func (s *Service) Type(cmd TypeCommand) error {

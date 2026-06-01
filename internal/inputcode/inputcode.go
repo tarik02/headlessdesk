@@ -10,6 +10,10 @@ type KeyEvent struct {
 	Down bool
 }
 
+type KeyChord struct {
+	keys []KeyName
+}
+
 type Scancode uint32
 
 func (s Scancode) Uint32() uint32 {
@@ -50,6 +54,40 @@ func (k KeyName) Code() uint32 {
 
 func (k KeyName) Scancode() Scancode {
 	return Scancode(k.code)
+}
+
+func ParseKeyChord(chord string) (KeyChord, error) {
+	trimmed := strings.TrimSpace(chord)
+	if trimmed == "" {
+		return KeyChord{}, fmt.Errorf("key is required")
+	}
+
+	parts := strings.Split(trimmed, "+")
+	keys := make([]KeyName, 0, len(parts))
+	for _, part := range parts {
+		name := strings.TrimSpace(part)
+		if name == "" {
+			return KeyChord{}, fmt.Errorf("empty key in chord: %s", chord)
+		}
+		key, err := ParseKeyName(name)
+		if err != nil {
+			return KeyChord{}, err
+		}
+		keys = append(keys, key)
+	}
+	return KeyChord{keys: keys}, nil
+}
+
+func (c KeyChord) Keys() []KeyName {
+	return append([]KeyName(nil), c.keys...)
+}
+
+func (c KeyChord) String() string {
+	names := make([]string, 0, len(c.keys))
+	for _, key := range c.keys {
+		names = append(names, key.String())
+	}
+	return strings.Join(names, "+")
 }
 
 type MouseButtonName struct {
