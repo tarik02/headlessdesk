@@ -39,6 +39,16 @@ static hd_display_info hd_main_display_info(void) {
 	CGRect bounds = CGDisplayBounds(display);
 	size_t pixel_width = CGDisplayPixelsWide(display);
 	size_t pixel_height = CGDisplayPixelsHigh(display);
+	CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display);
+	if (mode != NULL) {
+		size_t mode_width = CGDisplayModeGetPixelWidth(mode);
+		size_t mode_height = CGDisplayModeGetPixelHeight(mode);
+		if (mode_width > 0 && mode_height > 0) {
+			pixel_width = mode_width;
+			pixel_height = mode_height;
+		}
+		CFRelease(mode);
+	}
 
 	hd_display_info info = {
 		.x = bounds.origin.x,
@@ -481,7 +491,7 @@ func (b *Backend) refreshStatus(err error) {
 	if displayErr != nil && err == nil {
 		err = displayErr
 	}
-	outputReady := displayErr == nil && screenCaptureAllowed() && probeCapture(display) == nil
+	outputReady := displayErr == nil && probeCapture(display) == nil
 	inputReady := postEventAllowed() && accessibilityTrusted()
 	outputErr := outputStatusError(displayErr, outputReady)
 	inputErr := inputStatusError(inputReady)
