@@ -148,12 +148,39 @@ static bool hd_screen_capture_allowed(void) {
 	return CGPreflightScreenCaptureAccess();
 }
 
+static bool hd_request_screen_capture_access(void) {
+	return CGRequestScreenCaptureAccess();
+}
+
 static bool hd_post_event_allowed(void) {
 	return CGPreflightPostEventAccess();
 }
 
+static bool hd_request_post_event_access(void) {
+	return CGRequestPostEventAccess();
+}
+
 static bool hd_accessibility_trusted(void) {
 	return AXIsProcessTrustedWithOptions(NULL);
+}
+
+static bool hd_request_accessibility_trust(void) {
+	const void* keys[] = { kAXTrustedCheckOptionPrompt };
+	const void* values[] = { kCFBooleanTrue };
+	CFDictionaryRef options = CFDictionaryCreate(
+		kCFAllocatorDefault,
+		keys,
+		values,
+		1,
+		&kCFTypeDictionaryKeyCallBacks,
+		&kCFTypeDictionaryValueCallBacks
+	);
+	if (options == NULL) {
+		return AXIsProcessTrustedWithOptions(NULL);
+	}
+	Boolean trusted = AXIsProcessTrustedWithOptions(options);
+	CFRelease(options);
+	return trusted;
 }
 
 static bool hd_post_key(uint16_t keycode, bool down, bool repeat) {
@@ -271,6 +298,7 @@ type displayInfo struct {
 
 func New() (*Backend, error) {
 	b := &Backend{done: make(chan struct{})}
+	requestPermissions()
 	b.refreshStatus(nil)
 	return b, nil
 }
@@ -730,6 +758,18 @@ func postUnicode(units []uint16, down bool) error {
 
 func screenCaptureAllowed() bool {
 	return bool(C.hd_screen_capture_allowed())
+}
+
+func requestPermissions() {
+	if !screenCaptureAllowed() {
+		_ = C.hd_request_screen_capture_access()
+	}
+	if !postEventAllowed() {
+		_ = C.hd_request_post_event_access()
+	}
+	if !accessibilityTrusted() {
+		_ = C.hd_request_accessibility_trust()
+	}
 }
 
 func postEventAllowed() bool {
