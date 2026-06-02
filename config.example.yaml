@@ -78,9 +78,17 @@ backends:
   # windows-desktop:
   #   type: "windows"
 
+  # Native macOS backend. macOS only. Uses the active logged-in GUI session's
+  # main display for screenshots and Quartz events for keyboard/mouse input.
+  # Requires Screen Recording permission for screenshots, and Input Monitoring
+  # plus Accessibility permissions for input.
+  #
+  # macos-desktop:
+  #   type: "macos"
+
   # RDP backend. Can be used for input, output, or both.
   desktop:
-    # Backend type: rdp, vnc, command, kwin, eis, or windows.
+    # Backend type: rdp, vnc, command, kwin, eis, windows, or macos.
     type: "rdp"
 
     # Remote host/IP and port. Port 0 means default for backend type:

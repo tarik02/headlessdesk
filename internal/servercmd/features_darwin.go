@@ -1,4 +1,4 @@
-//go:build linux
+//go:build darwin
 
 package servercmd
 
@@ -6,38 +6,30 @@ import (
 	"fmt"
 
 	"headlessdesk/internal/desktop"
-	"headlessdesk/internal/kwin"
-	"headlessdesk/internal/kwineis"
+	"headlessdesk/internal/macoslocal"
 )
 
 func supportedBackendTypesDescription() string {
-	return "rdp, vnc, command, kwin, or eis"
+	return "rdp, vnc, command, or macos"
 }
 
 func validateBackendPlatform(name string, backendType string) error {
 	switch backendType {
+	case "kwin", "eis":
+		return fmt.Errorf("backends.%s.type %s is only supported on linux", name, backendType)
 	case "windows":
 		return fmt.Errorf("backends.%s.type windows is only supported on windows", name)
-	case "macos":
-		return fmt.Errorf("backends.%s.type macos is only supported on macos", name)
+	default:
+		return nil
 	}
-	return nil
 }
 
 func startKWinBackend(name string) (desktop.OutputBackend, error) {
-	backend, err := kwin.New()
-	if err != nil {
-		return nil, fmt.Errorf("start KWin backend %q: %w", name, err)
-	}
-	return backend, nil
+	return nil, fmt.Errorf("backend %q type kwin is only supported on linux", name)
 }
 
 func startKWinEISBackend(name string) (desktop.InputBackend, error) {
-	backend, err := kwineis.New()
-	if err != nil {
-		return nil, fmt.Errorf("start KWin EIS backend %q: %w", name, err)
-	}
-	return backend, nil
+	return nil, fmt.Errorf("backend %q type eis is only supported on linux", name)
 }
 
 func startWindowsBackend(name string) (desktop.Session, error) {
@@ -45,5 +37,9 @@ func startWindowsBackend(name string) (desktop.Session, error) {
 }
 
 func startMacOSBackend(name string) (desktop.Session, error) {
-	return nil, fmt.Errorf("backend %q type macos is only supported on macos", name)
+	backend, err := macoslocal.New()
+	if err != nil {
+		return nil, fmt.Errorf("start macOS backend %q: %w", name, err)
+	}
+	return backend, nil
 }

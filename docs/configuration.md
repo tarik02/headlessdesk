@@ -26,7 +26,7 @@ output: "desktop"
 
 backends:
   desktop:
-    type: "rdp" # rdp, vnc, command, kwin, eis, or windows
+    type: "rdp" # rdp, vnc, command, kwin, eis, windows, or macos
     host: "127.0.0.1"
     port: 0 # 0 means backend default: 3389 for RDP, 5900 for VNC
     username: "gmtest"
@@ -86,6 +86,23 @@ backends:
   local:
     type: "windows"
 ```
+
+macOS can use the native local desktop backend for the main display:
+
+```yaml
+input: "local"
+output: "local"
+
+backends:
+  local:
+    type: "macos"
+```
+
+The macOS backend requires an active logged-in graphical session. Screenshots
+require Screen Recording permission. Keyboard and mouse input require Input
+Monitoring and Accessibility permissions. The backend reports missing
+permissions in status and action errors instead of failing server startup.
+Coordinates are screenshot pixels; Retina display scaling is handled internally.
 
 Input and output can use different backend instances:
 

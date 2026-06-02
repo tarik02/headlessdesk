@@ -621,7 +621,7 @@ func validateBackendConfig(name string, cfg backendConfig, roles backendRoles) e
 		return fmt.Errorf("backends.%s.type is required", name)
 	}
 	switch backendType {
-	case "rdp", "vnc", "command", "kwin", "eis", "windows":
+	case "rdp", "vnc", "command", "kwin", "eis", "windows", "macos":
 	default:
 		return fmt.Errorf("invalid backends.%s.type: %q", name, cfg.Type)
 	}
@@ -694,6 +694,7 @@ func validateBackendConfig(name string, cfg backendConfig, roles backendRoles) e
 			return fmt.Errorf("backends.%s.type eis cannot be used for output backend", name)
 		}
 	case "windows":
+	case "macos":
 	}
 	return nil
 }
@@ -907,6 +908,8 @@ func startSessionBackend(name string, cfg backendConfig) (desktop.Session, error
 		return startCommandBackend(name, cfg)
 	case "windows":
 		return startWindowsBackend(name)
+	case "macos":
+		return startMacOSBackend(name)
 	case "kwin":
 		return nil, fmt.Errorf("backend %q type kwin does not support input", name)
 	case "eis":
@@ -926,6 +929,8 @@ func startOutputBackend(name string, cfg backendConfig) (desktop.OutputBackend, 
 		return startCommandBackend(name, cfg)
 	case "windows":
 		return startWindowsBackend(name)
+	case "macos":
+		return startMacOSBackend(name)
 	case "kwin":
 		return startKWinBackend(name)
 	case "eis":
@@ -945,6 +950,8 @@ func startInputBackend(name string, cfg backendConfig) (desktop.InputBackend, er
 		return startCommandBackend(name, cfg)
 	case "windows":
 		return startWindowsBackend(name)
+	case "macos":
+		return startMacOSBackend(name)
 	case "kwin":
 		return nil, fmt.Errorf("backend %q type kwin does not support input", name)
 	case "eis":
