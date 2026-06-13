@@ -36,8 +36,10 @@ just snapshot
 
 Linux builds include KWin screenshot and EIS input support. Windows builds
 include the native local `windows` backend in addition to RDP, VNC, and command
-backends. macOS builds include RDP, VNC, and command backends. Windows builds
-are cross-compiled from Linux with posix MinGW and need FreeRDP and LibVNCClient
+backends. macOS builds include the native local `macos` backend in addition to
+RDP, VNC, and command backends. macOS builds must run on macOS when cgo is
+enabled because the native backend links Apple frameworks. Windows builds are
+cross-compiled from Linux with posix MinGW and need FreeRDP and LibVNCClient
 target libraries in `pkg-config`. Binary packaging is configured in
 [`.goreleaser.yaml`](../.goreleaser.yaml).
 
@@ -61,3 +63,8 @@ For VNC, LibVNCClient development files must be visible to `pkg-config`:
 Linux KWin EIS input also requires libei development files:
 
 - `libei-1.0`
+
+macOS native local desktop support links ApplicationServices and CoreGraphics
+from the macOS SDK. RDP and VNC support on macOS still require FreeRDP and
+LibVNCClient development files visible to `pkg-config`, for example from
+Homebrew or another local package manager.

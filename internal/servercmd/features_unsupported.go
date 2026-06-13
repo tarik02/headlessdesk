@@ -1,4 +1,4 @@
-//go:build !linux && !windows
+//go:build !linux && !windows && !darwin
 
 package servercmd
 
@@ -18,6 +18,8 @@ func validateBackendPlatform(name string, backendType string) error {
 		return fmt.Errorf("backends.%s.type %s is only supported on linux", name, backendType)
 	case "windows":
 		return fmt.Errorf("backends.%s.type windows is only supported on windows", name)
+	case "macos":
+		return fmt.Errorf("backends.%s.type macos is only supported on macos", name)
 	default:
 		return nil
 	}
@@ -33,4 +35,8 @@ func startKWinEISBackend(name string) (desktop.InputBackend, error) {
 
 func startWindowsBackend(name string) (desktop.Session, error) {
 	return nil, fmt.Errorf("backend %q type windows is only supported on windows", name)
+}
+
+func startMacOSBackend(name string) (desktop.Session, error) {
+	return nil, fmt.Errorf("backend %q type macos is only supported on macos", name)
 }
