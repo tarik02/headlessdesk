@@ -19,6 +19,8 @@ Supported backend types:
 - `eis`: implemented through `internal/kwineis`, KWin's private EIS remote
   desktop DBus endpoint, and libei.
 - `windows`: implemented through `internal/winlocal` and Win32 APIs.
+- `macos`: implemented through `internal/macoslocal` and macOS
+  ApplicationServices/CoreGraphics APIs.
 
 Backend configs can also extend built-in presets before validation. Presets are
 embedded YAML files loaded by `internal/backendpreset`, merged left-to-right,
@@ -76,6 +78,22 @@ the full virtual screen, including multi-monitor layouts. Input uses
 named keys, scancodes, and Unicode text. Screenshot coordinates are relative to
 the captured virtual-screen image; the backend translates them to the desktop's
 native virtual-screen origin before sending pointer input.
+
+## macOS Backend
+
+The macOS backend is available only on macOS and implements both screenshot
+output and keyboard/mouse input for the local desktop. It targets an active
+logged-in graphical user session and exposes the main display. Screenshots are
+one-shot CoreGraphics captures, including native cropped captures. Input uses
+Quartz event posting for pointer movement, buttons, wheel events, named keys,
+evdev-style scancodes mapped to macOS virtual key codes, and Unicode text.
+
+macOS requires Screen Recording permission for screenshots and Input Monitoring
+plus Accessibility permission for input. The backend starts even when those
+permissions are missing; status reports the affected input or output side as
+not ready and actions return permission-specific errors. Screenshot coordinates
+are image pixels, and the backend maps them to macOS display coordinates for
+input.
 
 ## Command Backend
 

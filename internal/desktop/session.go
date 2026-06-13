@@ -64,6 +64,14 @@ type Component interface {
 	Status() Status
 }
 
+type InputStatusProvider interface {
+	InputStatus() Status
+}
+
+type OutputStatusProvider interface {
+	OutputStatus() Status
+}
+
 type OutputBackend interface {
 	Component
 	Screenshot() (image.Image, error)
@@ -128,8 +136,8 @@ func NewComposite(inputName string, input InputBackend, outputName string, outpu
 }
 
 func (c *Composite) Status() Status {
-	output := c.output.Status()
-	input := c.input.Status()
+	output := outputStatus(c.output)
+	input := inputStatus(c.input)
 
 	output.InputBackend = c.inputName
 	output.OutputBackend = c.outputName
@@ -147,6 +155,20 @@ func (c *Composite) Status() Status {
 	output.OutputRegions = append([]Region(nil), output.Regions...)
 	output.Error = joinErrors(input.Error, output.Error)
 	return output
+}
+
+func inputStatus(input InputBackend) Status {
+	if provider, ok := input.(InputStatusProvider); ok {
+		return provider.InputStatus()
+	}
+	return input.Status()
+}
+
+func outputStatus(output OutputBackend) Status {
+	if provider, ok := output.(OutputStatusProvider); ok {
+		return provider.OutputStatus()
+	}
+	return output.Status()
 }
 
 func (c *Composite) Done() <-chan struct{} {
