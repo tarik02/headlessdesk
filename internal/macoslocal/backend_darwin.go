@@ -262,6 +262,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"sync"
 	"unicode/utf16"
 	"unsafe"
@@ -409,7 +410,7 @@ func (b *Backend) TypeText(text string) error {
 	return nil
 }
 
-func (b *Backend) MoveMouse(x int, y int) error {
+func (b *Backend) MoveMouse(x float64, y float64) error {
 	display, px, py, err := b.displayPoint(x, y)
 	if err != nil {
 		b.refreshStatus(err)
@@ -424,7 +425,7 @@ func (b *Backend) MoveMouse(x int, y int) error {
 	return nil
 }
 
-func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	display, px, py, err := b.displayPoint(x, y)
 	if err != nil {
 		b.refreshStatus(err)
@@ -444,7 +445,7 @@ func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int
 	return nil
 }
 
-func (b *Backend) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (b *Backend) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	if delta == 0 {
 		err := errors.New("wheel delta must be non-zero")
 		b.refreshStatus(err)
@@ -503,13 +504,16 @@ func (b *Backend) Close() error {
 	return b.Err()
 }
 
-func (b *Backend) displayPoint(x int, y int) (displayInfo, float64, float64, error) {
+func (b *Backend) displayPoint(x float64, y float64) (displayInfo, float64, float64, error) {
 	display, err := currentDisplay()
 	if err != nil {
 		return displayInfo{}, 0, 0, err
 	}
-	if x < 0 || y < 0 || x >= display.pixelWidth || y >= display.pixelHeight {
-		return displayInfo{}, 0, 0, fmt.Errorf("mouse coordinates %d,%d are outside screen bounds %dx%d", x, y, display.pixelWidth, display.pixelHeight)
+	if math.IsNaN(x) || math.IsInf(x, 0) || math.IsNaN(y) || math.IsInf(y, 0) {
+		return displayInfo{}, 0, 0, errors.New("mouse coordinates must be finite")
+	}
+	if x < 0 || y < 0 || x >= float64(display.pixelWidth) || y >= float64(display.pixelHeight) {
+		return displayInfo{}, 0, 0, fmt.Errorf("mouse coordinates %g,%g are outside screen bounds %dx%d", x, y, display.pixelWidth, display.pixelHeight)
 	}
 	return display, display.x + float64(x)/display.scaleX, display.y + float64(y)/display.scaleY, nil
 }
