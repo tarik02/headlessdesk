@@ -150,17 +150,17 @@ func (b *Backend) TypeText(text string) error {
 	return err
 }
 
-func (b *Backend) MoveMouse(x int, y int) error {
+func (b *Backend) MoveMouse(x float64, y float64) error {
 	_, err := b.run(b.cfg.MoveMouse, pointData{X: x, Y: y})
 	return err
 }
 
-func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	_, err := b.run(b.cfg.MouseButton, buttonData{Button: button.String(), X: x, Y: y, Down: down})
 	return err
 }
 
-func (b *Backend) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (b *Backend) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	_, err := b.run(b.cfg.MouseWheel, wheelData{X: x, Y: y, Delta: delta, Horizontal: horizontal})
 	return err
 }
@@ -414,20 +414,20 @@ type cropData struct {
 }
 
 type pointData struct {
-	X int
-	Y int
+	X float64
+	Y float64
 }
 
 type buttonData struct {
 	Button string
-	X      int
-	Y      int
+	X      float64
+	Y      float64
 	Down   bool
 }
 
 type wheelData struct {
-	X          int
-	Y          int
+	X          float64
+	Y          float64
 	Delta      int
 	Horizontal bool
 }

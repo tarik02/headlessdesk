@@ -49,3 +49,10 @@ tools, and `write:keyboard` for keypress/text tools. `read:*`, `write:*`, and
 Input coordinates are accepted in output screenshot space. Backends that expose
 a different input coordinate space, such as KWin EIS on scaled Wayland desktops,
 can translate those coordinates before sending input.
+
+For `screenshot`, `click`, `double_click`, `drag`, `move`, and `scroll`,
+numeric geometry fields accept either JSON numbers or arithmetic expression
+strings using numeric literals, parentheses, `+`, `-`, `*`, and `/`. Pointer
+coordinate expressions may resolve to fractional values; integer-only backends
+round to the nearest coordinate. Screenshot crop fields and scroll deltas round
+to integer pixels or deltas.

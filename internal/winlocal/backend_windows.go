@@ -190,7 +190,7 @@ func (b *Backend) TypeText(text string) error {
 	return nil
 }
 
-func (b *Backend) MoveMouse(x int, y int) error {
+func (b *Backend) MoveMouse(x float64, y float64) error {
 	if err := b.setCursorPos(x, y); err != nil {
 		b.setErr(err)
 		return err
@@ -199,7 +199,7 @@ func (b *Backend) MoveMouse(x int, y int) error {
 	return nil
 }
 
-func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	if err := b.setCursorPos(x, y); err != nil {
 		b.setErr(err)
 		return err
@@ -217,7 +217,7 @@ func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int
 	return nil
 }
 
-func (b *Backend) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (b *Backend) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	if delta == 0 {
 		err := errors.New("wheel delta must be non-zero")
 		b.setErr(err)
@@ -262,17 +262,25 @@ func (b *Backend) Close() error {
 	return b.Err()
 }
 
-func (b *Backend) setCursorPos(x int, y int) error {
+func (b *Backend) setCursorPos(x float64, y float64) error {
 	bounds, err := virtualScreenBounds()
 	if err != nil {
 		return err
 	}
-	if x < 0 || y < 0 || x >= bounds.width || y >= bounds.height {
-		return fmt.Errorf("mouse coordinates %d,%d are outside screen bounds %dx%d", x, y, bounds.width, bounds.height)
+	roundedX, err := desktop.RoundCoordinate(x)
+	if err != nil {
+		return err
 	}
-	ok, winErr := win32.SetCursorPos(int32(bounds.left+x), int32(bounds.top+y))
+	roundedY, err := desktop.RoundCoordinate(y)
+	if err != nil {
+		return err
+	}
+	if roundedX < 0 || roundedY < 0 || roundedX >= bounds.width || roundedY >= bounds.height {
+		return fmt.Errorf("mouse coordinates %d,%d are outside screen bounds %dx%d", roundedX, roundedY, bounds.width, bounds.height)
+	}
+	ok, winErr := win32.SetCursorPos(int32(bounds.left+roundedX), int32(bounds.top+roundedY))
 	if ok == 0 {
-		if fallbackErr := sendAbsoluteMouseMove(x, y, bounds); fallbackErr != nil {
+		if fallbackErr := sendAbsoluteMouseMove(roundedX, roundedY, bounds); fallbackErr != nil {
 			return errors.Join(callError("SetCursorPos", winErr), fallbackErr)
 		}
 	}

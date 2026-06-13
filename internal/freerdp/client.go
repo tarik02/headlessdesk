@@ -423,7 +423,7 @@ func sendUnicodeLocked(client *C.gofreerdp_client, code uint16, release bool) er
 	return nil
 }
 
-func (s *Session) MoveMouse(x int, y int) error {
+func (s *Session) MoveMouse(x float64, y float64) error {
 	client := s.getClient()
 	if client == nil {
 		return errors.New("session is closed")
@@ -443,7 +443,7 @@ func (s *Session) MoveMouse(x int, y int) error {
 	return nil
 }
 
-func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	client := s.getClient()
 	if client == nil {
 		return errors.New("session is closed")
@@ -475,7 +475,7 @@ func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int
 	return nil
 }
 
-func (s *Session) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (s *Session) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	client := s.getClient()
 	if client == nil {
 		return errors.New("session is closed")
@@ -817,14 +817,22 @@ func lookupKeyScancode(name string) (uint32, bool) {
 	return scancode, ok
 }
 
-func validateMousePosition(x int, y int) (C.uint16_t, C.uint16_t, error) {
-	if x < 0 || x > 0xFFFF {
+func validateMousePosition(x float64, y float64) (C.uint16_t, C.uint16_t, error) {
+	roundedX, err := desktop.RoundCoordinate(x)
+	if err != nil {
+		return 0, 0, err
+	}
+	roundedY, err := desktop.RoundCoordinate(y)
+	if err != nil {
+		return 0, 0, err
+	}
+	if roundedX < 0 || roundedX > 0xFFFF {
 		return 0, 0, fmt.Errorf("x must be between 0 and %d", 0xFFFF)
 	}
-	if y < 0 || y > 0xFFFF {
+	if roundedY < 0 || roundedY > 0xFFFF {
 		return 0, 0, fmt.Errorf("y must be between 0 and %d", 0xFFFF)
 	}
-	return C.uint16_t(x), C.uint16_t(y), nil
+	return C.uint16_t(roundedX), C.uint16_t(roundedY), nil
 }
 
 func mouseButtonFlags(button string, down bool) (C.uint16_t, bool, error) {

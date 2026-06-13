@@ -184,9 +184,9 @@ func (b *Backend) Close() error {
 	return b.Err()
 }
 
-func (b *Backend) MapInputPoint(outputWidth int, outputHeight int, x int, y int) (int, int, error) {
+func (b *Backend) MapInputPoint(outputWidth int, outputHeight int, x float64, y float64) (float64, float64, error) {
 	if x < 0 || y < 0 {
-		return 0, 0, fmt.Errorf("mouse coordinates must be non-negative: %d,%d", x, y)
+		return 0, 0, fmt.Errorf("mouse coordinates must be non-negative: %g,%g", x, y)
 	}
 	if outputWidth <= 0 || outputHeight <= 0 {
 		return x, y, nil
@@ -199,9 +199,9 @@ func (b *Backend) MapInputPoint(outputWidth int, outputHeight int, x int, y int)
 		return x, y, nil
 	}
 
-	mappedX := union.X + int(float64(x)*float64(union.W)/float64(outputWidth))
-	mappedY := union.Y + int(float64(y)*float64(union.H)/float64(outputHeight))
-	return clamp(mappedX, union.X, union.X+union.W-1), clamp(mappedY, union.Y, union.Y+union.H-1), nil
+	mappedX := float64(union.X) + x*float64(union.W)/float64(outputWidth)
+	mappedY := float64(union.Y) + y*float64(union.H)/float64(outputHeight)
+	return clampFloat(mappedX, float64(union.X), float64(union.X+union.W-1)), clampFloat(mappedY, float64(union.Y), float64(union.Y+union.H-1)), nil
 }
 
 func (b *Backend) SendKey(name inputcode.KeyName, down bool, repeat bool) error {
@@ -226,16 +226,16 @@ func (b *Backend) TypeText(text string) error {
 	})
 }
 
-func (b *Backend) MoveMouse(x int, y int) error {
+func (b *Backend) MoveMouse(x float64, y float64) error {
 	if x < 0 || y < 0 {
-		return fmt.Errorf("mouse coordinates must be non-negative: %d,%d", x, y)
+		return fmt.Errorf("mouse coordinates must be non-negative: %g,%g", x, y)
 	}
 	return b.withDevice("absolute pointer", func() *C.struct_ei_device { return b.pointerAbs }, func(device *C.struct_ei_device) {
 		C.ei_device_pointer_motion_absolute(device, C.double(x), C.double(y))
 	})
 }
 
-func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	if err := b.MoveMouse(x, y); err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int
 	})
 }
 
-func (b *Backend) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (b *Backend) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	if delta == 0 {
 		return errors.New("wheel delta must be non-zero")
 	}
@@ -530,6 +530,16 @@ func regionUnion(regions []desktop.Region) (desktop.Region, bool) {
 }
 
 func clamp(value int, low int, high int) int {
+	if value < low {
+		return low
+	}
+	if value > high {
+		return high
+	}
+	return value
+}
+
+func clampFloat(value float64, low float64, high float64) float64 {
 	if value < low {
 		return low
 	}

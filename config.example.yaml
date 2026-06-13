@@ -161,15 +161,17 @@ backends:
   #       argv: ["grim", "-g", "{{.X}},{{.Y}} {{.W}}x{{.H}}", "-"]
   #
   #     # Mouse move. Required when command backend is selected as input.
-  #     # Template values: X, Y.
+  #     # Template values: X, Y. Pointer X/Y values may be fractional.
   #     move_mouse:
   #       argv: ["ydotool", "mousemove", "--absolute", "-x", "{{.X}}", "-y", "{{.Y}}"]
   #
-  #     # Mouse button down/up. Template values: Button, X, Y, Down.
+  #     # Mouse button down/up. Template values: Button, X, Y, Down. Pointer
+  #     # X/Y values may be fractional.
   #     mouse_button:
   #       argv: ["ydotool", "click", "{{ ydotoolButtonEvent .Button .Down }}"]
   #
-  #     # Mouse wheel. Template values: X, Y, Delta, Horizontal.
+  #     # Mouse wheel. Template values: X, Y, Delta, Horizontal. Pointer X/Y
+  #     # values may be fractional.
   #     mouse_wheel:
   #       argv: ["ydotool", "mousemove", "--wheel", "--", "{{ ydotoolWheelX .Delta .Horizontal }}", "{{ ydotoolWheelY .Delta .Horizontal }}"]
   #

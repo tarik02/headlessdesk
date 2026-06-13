@@ -66,15 +66,15 @@ func (s *Session) TypeText(text string) error {
 	return errCGODisabled
 }
 
-func (s *Session) MoveMouse(x int, y int) error {
+func (s *Session) MoveMouse(x float64, y float64) error {
 	return errCGODisabled
 }
 
-func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	return errCGODisabled
 }
 
-func (s *Session) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (s *Session) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	return errCGODisabled
 }
 

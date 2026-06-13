@@ -56,6 +56,13 @@ Input coordinates are accepted in output screenshot space. Backends that expose
 a different input coordinate space, such as KWin EIS on scaled Wayland desktops,
 can translate those coordinates before sending input.
 
+Pointer coordinate fields (`x`, `y`) on mouse endpoints accept either JSON
+numbers or arithmetic expression strings using numeric literals, parentheses,
+`+`, `-`, `*`, and `/`. Pointer expressions may resolve to fractional values;
+integer-only backends round to the nearest coordinate. Screenshot crop fields
+(`x`, `y`, `w`, `h`) and scroll deltas (`scrollX`, `scrollY`) also accept
+arithmetic expression strings, then round to integer pixels or deltas.
+
 ## Examples
 
 ```bash
@@ -77,7 +84,7 @@ curl -X POST http://127.0.0.1:4243/move \
 
 curl -X POST http://127.0.0.1:4243/click \
   -H 'Content-Type: application/json' \
-  -d '{"x":640,"y":360,"button":"left"}'
+  -d '{"x":"320+320","y":"180*2","button":"left"}'
 
 curl -X POST http://127.0.0.1:4243/scroll \
   -H 'Content-Type: application/json' \
