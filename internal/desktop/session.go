@@ -3,6 +3,7 @@ package desktop
 import (
 	"errors"
 	"image"
+	"math"
 	"sync"
 
 	"headlessdesk/internal/inputcode"
@@ -85,13 +86,13 @@ type InputBackend interface {
 	SendKey(name inputcode.KeyName, down bool, repeat bool) error
 	SendKeyScancode(scancode inputcode.Scancode, down bool, repeat bool) error
 	TypeText(text string) error
-	MoveMouse(x int, y int) error
-	SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error
-	SendMouseWheel(x int, y int, delta int, horizontal bool) error
+	MoveMouse(x float64, y float64) error
+	SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error
+	SendMouseWheel(x float64, y float64, delta int, horizontal bool) error
 }
 
 type CoordinateMapper interface {
-	MapInputPoint(outputWidth int, outputHeight int, x int, y int) (int, int, error)
+	MapInputPoint(outputWidth int, outputHeight int, x float64, y float64) (float64, float64, error)
 }
 
 // Session is a long-lived remote desktop connection.
@@ -240,4 +241,17 @@ func joinErrors(values ...string) string {
 
 func componentHealthy(status Status) bool {
 	return status.Connected && status.Active && status.Ready && status.Error == ""
+}
+
+func RoundCoordinate(value float64) (int, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, errors.New("coordinate must be finite")
+	}
+	rounded := math.Round(value)
+	maxInt := float64(int(^uint(0) >> 1))
+	minInt := -maxInt - 1
+	if rounded < minInt || rounded > maxInt {
+		return 0, errors.New("coordinate is outside int range")
+	}
+	return int(rounded), nil
 }

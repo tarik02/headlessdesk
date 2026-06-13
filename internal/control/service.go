@@ -30,8 +30,8 @@ const doubleClickPause = 120 * time.Millisecond
 const dragStepPause = 16 * time.Millisecond
 
 type Point struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type ScreenshotCommand struct {
@@ -39,14 +39,14 @@ type ScreenshotCommand struct {
 }
 
 type ClickCommand struct {
-	X      int
-	Y      int
+	X      float64
+	Y      float64
 	Button string
 }
 
 type DoubleClickCommand struct {
-	X      int
-	Y      int
+	X      float64
+	Y      float64
 	Button string
 }
 
@@ -55,13 +55,13 @@ type DragCommand struct {
 }
 
 type MoveCommand struct {
-	X int
-	Y int
+	X float64
+	Y float64
 }
 
 type ScrollCommand struct {
-	X       int
-	Y       int
+	X       float64
+	Y       float64
 	ScrollX int
 	ScrollY int
 }
@@ -283,7 +283,7 @@ func (s *Service) mapInputPath(path []Point) ([]Point, error) {
 	return mapped, nil
 }
 
-func (s *Service) mapInputPoint(x int, y int) (int, int, error) {
+func (s *Service) mapInputPoint(x float64, y float64) (float64, float64, error) {
 	mapper, ok := s.input.(desktop.CoordinateMapper)
 	if !ok {
 		return x, y, nil

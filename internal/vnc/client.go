@@ -295,7 +295,7 @@ func (s *Session) TypeText(text string) error {
 	})
 }
 
-func (s *Session) MoveMouse(x int, y int) error {
+func (s *Session) MoveMouse(x float64, y float64) error {
 	mouseX, mouseY, err := validatePointerPosition(x, y)
 	if err != nil {
 		return err
@@ -303,7 +303,7 @@ func (s *Session) MoveMouse(x int, y int) error {
 	return s.sendPointer(mouseX, mouseY, 0)
 }
 
-func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	mouseX, mouseY, err := validatePointerPosition(x, y)
 	if err != nil {
 		return err
@@ -318,7 +318,7 @@ func (s *Session) SendMouseButton(button inputcode.MouseButtonName, x int, y int
 	return s.sendPointer(mouseX, mouseY, mask)
 }
 
-func (s *Session) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (s *Session) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	mouseX, mouseY, err := validatePointerPosition(x, y)
 	if err != nil {
 		return err
@@ -400,11 +400,19 @@ func (s *Session) setDisconnected() {
 	}
 }
 
-func validatePointerPosition(x int, y int) (int, int, error) {
-	if x < 0 || y < 0 || x > int(^uint16(0)) || y > int(^uint16(0)) {
-		return 0, 0, fmt.Errorf("pointer position out of range: %d,%d", x, y)
+func validatePointerPosition(x float64, y float64) (int, int, error) {
+	roundedX, err := desktop.RoundCoordinate(x)
+	if err != nil {
+		return 0, 0, err
 	}
-	return x, y, nil
+	roundedY, err := desktop.RoundCoordinate(y)
+	if err != nil {
+		return 0, 0, err
+	}
+	if roundedX < 0 || roundedY < 0 || roundedX > int(^uint16(0)) || roundedY > int(^uint16(0)) {
+		return 0, 0, fmt.Errorf("pointer position out of range: %d,%d", roundedX, roundedY)
+	}
+	return roundedX, roundedY, nil
 }
 
 func buttonMask(button string) (int, error) {

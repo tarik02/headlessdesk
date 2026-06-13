@@ -50,15 +50,15 @@ func (b *Backend) TypeText(text string) error {
 	return errCGODisabled
 }
 
-func (b *Backend) MoveMouse(x int, y int) error {
+func (b *Backend) MoveMouse(x float64, y float64) error {
 	return errCGODisabled
 }
 
-func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (b *Backend) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	return errCGODisabled
 }
 
-func (b *Backend) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (b *Backend) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	return errCGODisabled
 }
 

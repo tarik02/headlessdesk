@@ -56,15 +56,15 @@ func (b *fakeDesktopBackend) TypeText(text string) error {
 	return nil
 }
 
-func (b *fakeDesktopBackend) MoveMouse(x int, y int) error {
+func (b *fakeDesktopBackend) MoveMouse(x float64, y float64) error {
 	return nil
 }
 
-func (b *fakeDesktopBackend) SendMouseButton(button inputcode.MouseButtonName, x int, y int, down bool) error {
+func (b *fakeDesktopBackend) SendMouseButton(button inputcode.MouseButtonName, x float64, y float64, down bool) error {
 	return nil
 }
 
-func (b *fakeDesktopBackend) SendMouseWheel(x int, y int, delta int, horizontal bool) error {
+func (b *fakeDesktopBackend) SendMouseWheel(x float64, y float64, delta int, horizontal bool) error {
 	return nil
 }
 
