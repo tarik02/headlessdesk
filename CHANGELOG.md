@@ -1,5 +1,11 @@
 # headlessdesk
 
+## 0.4.2
+
+### Patch Changes
+
+- cfaa349: Fix release tarballs to contain a `headlessdesk` executable instead of a platform-suffixed binary name.
+
 ## 0.4.1
 
 ### Patch Changes
