@@ -1,5 +1,13 @@
 # headlessdesk
 
+## 0.4.0
+
+### Minor Changes
+
+- f8d7528: Allow HTTP and MCP numeric action fields to accept arithmetic expression strings, with float pointer coordinates where supported.
+- c2d9ce0: Add a native macOS desktop backend with screen capture, input control, feature discovery, and permission prompts.
+- 43f09d2: Support key chords in the `keypress` API, such as `Ctrl+L`, `Ctrl+Shift+P`, and `Alt+Tab`.
+
 ## 0.3.0
 
 ### Minor Changes
