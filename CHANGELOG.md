@@ -1,5 +1,12 @@
 # headlessdesk
 
+## 0.4.1
+
+### Patch Changes
+
+- 8047484: Add in-repo agent skills for headlessdesk control surfaces.
+- 69d9c56: allow fuse inputs to use numeric expressions
+
 ## 0.4.0
 
 ### Minor Changes
