@@ -39,10 +39,10 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
-          args: build --snapshot --clean --single-target --id headlessdesk-linux --output dist/headlessdesk-linux-amd64
+          args: build --snapshot --clean --single-target --id headlessdesk-linux --output dist/headlessdesk
 
       - name: Package
-        run: tar -czf dist/headlessdesk-linux-amd64.tar.gz -C dist headlessdesk-linux-amd64
+        run: tar -czf dist/headlessdesk-linux-amd64.tar.gz -C dist headlessdesk
 
       - uses: actions/upload-artifact@v7
         with:
@@ -75,10 +75,10 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
-          args: build --snapshot --clean --single-target --id headlessdesk-darwin --output dist/headlessdesk-${{ matrix.target }}
+          args: build --snapshot --clean --single-target --id headlessdesk-darwin --output dist/headlessdesk
 
       - name: Package
-        run: tar -czf dist/headlessdesk-${{ matrix.target }}.tar.gz -C dist headlessdesk-${{ matrix.target }}
+        run: tar -czf dist/headlessdesk-${{ matrix.target }}.tar.gz -C dist headlessdesk
 
       - uses: actions/upload-artifact@v7
         with:
