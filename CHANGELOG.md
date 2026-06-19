@@ -1,5 +1,11 @@
 # headlessdesk
 
+## 0.4.3
+
+### Patch Changes
+
+- 5214af0: Clarify FUSE screenshot handling in agent skill instructions.
+
 ## 0.4.2
 
 ### Patch Changes
