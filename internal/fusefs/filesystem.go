@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"hash/fnv"
 	"log"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 
+	"headlessdesk/internal/apiinput"
 	"headlessdesk/internal/control"
 )
 
@@ -48,6 +50,33 @@ type writeFile struct {
 type cropDir struct {
 	fs.Inode
 	service *control.Service
+}
+
+type clickRequest struct {
+	X      *apiinput.Number `json:"x"`
+	Y      *apiinput.Number `json:"y"`
+	Button string           `json:"button"`
+}
+
+type pointRequest struct {
+	X *apiinput.Number `json:"x"`
+	Y *apiinput.Number `json:"y"`
+}
+
+type moveRequest struct {
+	X *apiinput.Number `json:"x"`
+	Y *apiinput.Number `json:"y"`
+}
+
+type scrollRequest struct {
+	X       *apiinput.Number `json:"x"`
+	Y       *apiinput.Number `json:"y"`
+	ScrollX apiinput.Number  `json:"scrollX"`
+	ScrollY apiinput.Number  `json:"scrollY"`
+}
+
+type dragRequest struct {
+	Path []pointRequest `json:"path"`
 }
 
 type readHandle struct {
@@ -130,14 +159,14 @@ func (r *rootNode) readme() ([]byte, error) {
 - health.json: current backend status as JSON.
 - status.json: same as health.json.
 - screenshot.png: latest full screenshot as PNG.
-- crop/<x>,<y>,<w>,<h>.png: cropped screenshot as PNG, for example crop/100,100,400,300.png.
+- crop/<x>,<y>,<w>,<h>.png: cropped screenshot as PNG, for example crop/100,100,400,300.png or crop/1280%2F2-200,720%2F2-150,400,300.png.
 - input/type: write raw text to type.
 - input/keypress: write a key name to press and release.
-- input/click.json: write {"x":640,"y":360,"button":"left"}.
-- input/double_click.json: write {"x":640,"y":360,"button":"left"}.
-- input/move.json: write {"x":640,"y":360}.
-- input/scroll.json: write {"x":640,"y":360,"scrollY":120}.
-- input/drag.json: write {"path":[{"x":1,"y":1},{"x":2,"y":2}]}.
+- input/click.json: write {"x":"1280/2","y":"720/2","button":"left"}.
+- input/double_click.json: write {"x":"1280/2","y":"720/2","button":"left"}.
+- input/move.json: write {"x":"1280/2","y":"720/2"}.
+- input/scroll.json: write {"x":"1280/2","y":"720/2","scrollY":"120*2"}.
+- input/drag.json: write {"path":[{"x":"100+20","y":100},{"x":300,"y":"200-50"}]}.
 `), nil
 }
 
@@ -154,43 +183,103 @@ func (r *rootNode) keypress(data []byte) error {
 }
 
 func (r *rootNode) click(data []byte) error {
-	var cmd control.ClickCommand
-	if err := json.Unmarshal(data, &cmd); err != nil {
+	var req clickRequest
+	if err := json.Unmarshal(data, &req); err != nil {
 		return err
 	}
-	return r.service.Click(cmd)
+	x, y, err := req.point("")
+	if err != nil {
+		return err
+	}
+	return r.service.Click(control.ClickCommand{X: x, Y: y, Button: req.Button})
 }
 
 func (r *rootNode) doubleClick(data []byte) error {
-	var cmd control.DoubleClickCommand
-	if err := json.Unmarshal(data, &cmd); err != nil {
+	var req clickRequest
+	if err := json.Unmarshal(data, &req); err != nil {
 		return err
 	}
-	return r.service.DoubleClick(cmd)
+	x, y, err := req.point("")
+	if err != nil {
+		return err
+	}
+	return r.service.DoubleClick(control.DoubleClickCommand{X: x, Y: y, Button: req.Button})
 }
 
 func (r *rootNode) move(data []byte) error {
-	var cmd control.MoveCommand
-	if err := json.Unmarshal(data, &cmd); err != nil {
+	var req moveRequest
+	if err := json.Unmarshal(data, &req); err != nil {
 		return err
 	}
-	return r.service.Move(cmd)
+	x, y, err := req.point("")
+	if err != nil {
+		return err
+	}
+	return r.service.Move(control.MoveCommand{X: x, Y: y})
 }
 
 func (r *rootNode) scroll(data []byte) error {
-	var cmd control.ScrollCommand
-	if err := json.Unmarshal(data, &cmd); err != nil {
+	var req scrollRequest
+	if err := json.Unmarshal(data, &req); err != nil {
 		return err
 	}
-	return r.service.Scroll(cmd)
+	x, y, err := req.point("")
+	if err != nil {
+		return err
+	}
+	scrollX, err := req.ScrollX.Int("scrollX")
+	if err != nil {
+		return err
+	}
+	scrollY, err := req.ScrollY.Int("scrollY")
+	if err != nil {
+		return err
+	}
+	return r.service.Scroll(control.ScrollCommand{X: x, Y: y, ScrollX: scrollX, ScrollY: scrollY})
 }
 
 func (r *rootNode) drag(data []byte) error {
-	var cmd control.DragCommand
-	if err := json.Unmarshal(data, &cmd); err != nil {
+	var req dragRequest
+	if err := json.Unmarshal(data, &req); err != nil {
 		return err
 	}
-	return r.service.Drag(cmd)
+	path := make([]control.Point, 0, len(req.Path))
+	for i, point := range req.Path {
+		x, y, err := point.point("path[" + strconv.Itoa(i) + "].")
+		if err != nil {
+			return err
+		}
+		path = append(path, control.Point{X: x, Y: y})
+	}
+	return r.service.Drag(control.DragCommand{Path: path})
+}
+
+func (r *clickRequest) point(prefix string) (float64, float64, error) {
+	return parsePoint(prefix, r.X, r.Y)
+}
+
+func (r *pointRequest) point(prefix string) (float64, float64, error) {
+	return parsePoint(prefix, r.X, r.Y)
+}
+
+func (r *moveRequest) point(prefix string) (float64, float64, error) {
+	return parsePoint(prefix, r.X, r.Y)
+}
+
+func (r *scrollRequest) point(prefix string) (float64, float64, error) {
+	return parsePoint(prefix, r.X, r.Y)
+}
+
+func parsePoint(prefix string, xValue *apiinput.Number, yValue *apiinput.Number) (float64, float64, error) {
+	x, err := apiinput.RequiredFloat64(prefix+"x", xValue)
+	if err != nil {
+		return 0, 0, err
+	}
+	y, err := apiinput.RequiredFloat64(prefix+"y", yValue)
+	if err != nil {
+		return 0, 0, err
+	}
+	return x, y, nil
 }
 
 func (d *cropDir) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
@@ -322,13 +411,38 @@ func parseCropFilename(name string) (control.Crop, bool) {
 
 	values := make([]int, 4)
 	for i, part := range parts {
-		value, err := strconv.Atoi(part)
+		part, err := url.PathUnescape(part)
+		if err != nil {
+			return control.Crop{}, false
+		}
+		value, err := parseCropPart(cropFieldName(i), part)
 		if err != nil {
 			return control.Crop{}, false
 		}
 		values[i] = value
 	}
 	return control.Crop{X: &values[0], Y: &values[1], W: &values[2], H: &values[3]}, true
+}
+
+func parseCropPart(field string, expr string) (int, error) {
+	var value apiinput.Number
+	if err := json.Unmarshal([]byte(strconv.Quote(expr)), &value); err != nil {
+		return 0, err
+	}
+	return value.Int(field)
+}
+
+func cropFieldName(index int) string {
+	switch index {
+	case 0:
+		return "crop.x"
+	case 1:
+		return "crop.y"
+	case 2:
+		return "crop.w"
+	default:
+		return "crop.h"
+	}
 }
 
 func cropInode(name string) uint64 {
