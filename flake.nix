@@ -66,9 +66,19 @@
             wrapProgram $out/bin/headlessdesk \
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fuse3 ]}
 
+            # KWin authorizes ScreenShot2 callers by matching a process's
+            # /proc/<pid>/exe against the Exec of an installed desktop entry.
+            # NixOS patches KWin to unwrap the `.<name>-wrapped` convention, so
+            # it looks for the public `bin/headlessdesk` launcher, while
+            # unpatched KWin looks for the wrapped ELF it actually sees. Install
+            # an entry for each name so authorization works either way.
             mkdir -p $out/share/applications
             substitute ${./deploy/applications/headlessdesk.desktop} \
               $out/share/applications/headlessdesk.desktop \
+              --replace-fail '{{HOME}}/.local/bin/headlessdesk' \
+              "$out/bin/headlessdesk"
+            substitute ${./deploy/applications/headlessdesk.desktop} \
+              $out/share/applications/headlessdesk-wrapped.desktop \
               --replace-fail '{{HOME}}/.local/bin/headlessdesk' \
               "$out/bin/.headlessdesk-wrapped"
           '';
