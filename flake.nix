@@ -1,6 +1,13 @@
 {
   description = "Nix build for headlessdesk";
 
+  nixConfig = {
+    extra-substituters = [ "https://tarik02-headlessdesk.cachix.org" ];
+    extra-trusted-public-keys = [
+      "tarik02-headlessdesk.cachix.org-1:N9yH3zY4oE/MgSyzm59U0wBHflIZnFAeXFsvUU8ti8w="
+    ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
