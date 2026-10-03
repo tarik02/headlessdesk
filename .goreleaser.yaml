@@ -103,3 +103,9 @@ archives:
 
 checksum:
   name_template: checksums.txt
+
+snapshot:
+  # CI passes RELEASE_VERSION for stable and nightly builds; local and PR
+  # snapshots keep goreleaser's default naming.
+  version_template: >-
+    {{ if index .Env "RELEASE_VERSION" }}{{ .Env.RELEASE_VERSION }}{{ else }}{{ incpatch .Version }}-SNAPSHOT-{{ .ShortCommit }}{{ end }}
