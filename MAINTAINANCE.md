@@ -48,8 +48,9 @@ CGO packages require matching Nix build inputs:
 - `internal/kwineis`: `libei`
 
 When adding a new `#cgo pkg-config:` dependency, add the matching package to
-both `packages.default.buildInputs` and `devShells.default.packages` in
-`flake.nix`.
+both the package `buildInputs` and `devShells.default.packages` in `flake.nix`.
+Backends with native dependencies should have a `headlessdesk_no_<type>` build
+tag in `internal/servercmd` and an entry in the flake's `optionalBackends`.
 
 ## Checks
 
@@ -57,5 +58,5 @@ Run before handing off Nix changes:
 
 ```bash
 go test ./...
-nix build .#
+nix build .# .#headlessdesk-local
 ```

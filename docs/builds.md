@@ -48,6 +48,40 @@ Windows release zips include both `headlessdesk.exe` for console use and
 linked with static MinGW compiler/thread runtimes where possible, while FreeRDP
 and LibVNCClient are still packaged as runtime DLLs.
 
+## Backend Selection
+
+All backends available on the target platform are included by default. Exclude
+optional backends with Go build tags:
+
+| Tag                    | Excludes | Drops dependency |
+| ---------------------- | -------- | ---------------- |
+| `headlessdesk_no_rdp`  | `rdp`    | FreeRDP          |
+| `headlessdesk_no_vnc`  | `vnc`    | LibVNCClient     |
+| `headlessdesk_no_kwin` | `kwin`   |                  |
+| `headlessdesk_no_eis`  | `eis`    | libei            |
+
+```bash
+go build -tags headlessdesk_no_rdp,headlessdesk_no_vnc ./cmd/headlessdesk
+```
+
+Configs that select an excluded backend fail validation with
+`backends.<name>.type <type> is not included in this build`.
+
+The flake package takes a `backends` list (any subset of `rdp`, `vnc`, `kwin`,
+`eis`; `command` is always included) and drops the matching build inputs:
+
+```nix
+headlessdesk.packages.${system}.default.override {
+  backends = [ "kwin" "eis" ];
+}
+```
+
+`packages.<system>.headlessdesk-local` is that KWin/EIS-only build:
+
+```bash
+nix build .#headlessdesk-local
+```
+
 ## Dependencies
 
 For RDP, FreeRDP development files must be visible to `pkg-config`:

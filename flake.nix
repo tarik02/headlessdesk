@@ -37,65 +37,94 @@
             "-DWITH_FFMPEG=ON"
           ];
         });
+        optionalBackends = [
+          "rdp"
+          "vnc"
+          "kwin"
+          "eis"
+        ];
+        headlessdesk = pkgs.lib.makeOverridable (
+          {
+            backends ? optionalBackends,
+          }:
+          let
+            unknownBackends = pkgs.lib.subtractLists optionalBackends backends;
+            withBackend = backend: builtins.elem backend backends;
+          in
+          assert pkgs.lib.assertMsg (unknownBackends == [ ])
+            "headlessdesk: unknown backends ${toString unknownBackends}; expected a subset of ${toString optionalBackends}";
+          gomod2nixPkgs.buildGoApplication {
+            pname = "headlessdesk";
+            version = package.version;
+
+            src = ./.;
+            pwd = ./.;
+            modules = ./gomod2nix.toml;
+            modRoot = ".";
+            subPackages = [ "cmd/headlessdesk" ];
+
+            inherit go;
+
+            nativeBuildInputs = [
+              pkgs.makeWrapper
+              pkgs.pkg-config
+            ];
+
+            tags = map (backend: "headlessdesk_no_${backend}") (
+              pkgs.lib.subtractLists backends optionalBackends
+            );
+
+            buildInputs =
+              pkgs.lib.optional (withBackend "rdp") freerdp
+              ++ pkgs.lib.optional (withBackend "eis") pkgs.libei
+              ++ pkgs.lib.optional (withBackend "vnc") pkgs.libvncserver;
+
+            CGO_ENABLED = "1";
+
+            ldflags = [
+              "-s"
+              "-w"
+            ];
+
+            postInstall = ''
+              wrapProgram $out/bin/headlessdesk \
+                --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fuse3 ]}
+            ''
+            + pkgs.lib.optionalString (withBackend "kwin") ''
+
+              # KWin authorizes ScreenShot2 callers by matching a process's
+              # /proc/<pid>/exe against the Exec of an installed desktop entry.
+              # NixOS patches KWin to unwrap the `.<name>-wrapped` convention, so
+              # it looks for the public `bin/headlessdesk` launcher, while
+              # unpatched KWin looks for the wrapped ELF it actually sees. Install
+              # an entry for each name so authorization works either way.
+              mkdir -p $out/share/applications
+              substitute ${./deploy/applications/headlessdesk.desktop} \
+                $out/share/applications/headlessdesk.desktop \
+                --replace-fail '{{HOME}}/.local/bin/headlessdesk' \
+                "$out/bin/headlessdesk"
+              substitute ${./deploy/applications/headlessdesk.desktop} \
+                $out/share/applications/headlessdesk-wrapped.desktop \
+                --replace-fail '{{HOME}}/.local/bin/headlessdesk' \
+                "$out/bin/.headlessdesk-wrapped"
+            '';
+
+            meta = with pkgs.lib; {
+              description = "Headless remote desktop screenshot and control server written in Go";
+              license = licenses.gpl3Plus;
+              mainProgram = "headlessdesk";
+              platforms = platforms.linux;
+            };
+          }
+        ) { };
       in
       {
-        packages.default = gomod2nixPkgs.buildGoApplication {
-          pname = "headlessdesk";
-          version = package.version;
-
-          src = ./.;
-          pwd = ./.;
-          modules = ./gomod2nix.toml;
-          modRoot = ".";
-          subPackages = [ "cmd/headlessdesk" ];
-
-          inherit go;
-
-          nativeBuildInputs = [
-            pkgs.makeWrapper
-            pkgs.pkg-config
+        packages.default = headlessdesk;
+        packages.headlessdesk-local = headlessdesk.override {
+          backends = [
+            "kwin"
+            "eis"
           ];
-
-          buildInputs = [
-            freerdp
-            pkgs.libei
-            pkgs.libvncserver
-          ];
-
-          CGO_ENABLED = "1";
-
-          ldflags = [
-            "-s"
-            "-w"
-          ];
-
-          postInstall = ''
-            wrapProgram $out/bin/headlessdesk \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.fuse3 ]}
-
-            # KWin authorizes ScreenShot2 callers by matching a process's
-            # /proc/<pid>/exe against the Exec of an installed desktop entry.
-            # NixOS patches KWin to unwrap the `.<name>-wrapped` convention, so
-            # it looks for the public `bin/headlessdesk` launcher, while
-            # unpatched KWin looks for the wrapped ELF it actually sees. Install
-            # an entry for each name so authorization works either way.
-            mkdir -p $out/share/applications
-            substitute ${./deploy/applications/headlessdesk.desktop} \
-              $out/share/applications/headlessdesk.desktop \
-              --replace-fail '{{HOME}}/.local/bin/headlessdesk' \
-              "$out/bin/headlessdesk"
-            substitute ${./deploy/applications/headlessdesk.desktop} \
-              $out/share/applications/headlessdesk-wrapped.desktop \
-              --replace-fail '{{HOME}}/.local/bin/headlessdesk' \
-              "$out/bin/.headlessdesk-wrapped"
-          '';
-
-          meta = with pkgs.lib; {
-            description = "Headless remote desktop screenshot and control server written in Go";
-            license = licenses.gpl3Plus;
-            mainProgram = "headlessdesk";
-            platforms = platforms.linux;
-          };
         };
 
         apps.default = {
