@@ -32,13 +32,15 @@ jobs:
 
       - name: Build package
         run: |
-          nix build --no-link --print-out-paths --print-build-logs .#default \
+          nix build --no-link --print-out-paths --print-build-logs .#default .#headlessdesk-local \
             > "$RUNNER_TEMP/nix-package-paths"
 
       - name: Smoke-test package
         run: |
-          headlessdesk="$(nix eval --raw .#default.outPath)"
-          "$headlessdesk/bin/headlessdesk" --help
+          for package in default headlessdesk-local; do
+            headlessdesk="$(nix eval --raw ".#$package.outPath")"
+            "$headlessdesk/bin/headlessdesk" --help
+          done
 
       # Release tags point at commits already built here, so master is the
       # only ref that needs to publish. PR jobs never receive this token.
