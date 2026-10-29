@@ -296,7 +296,7 @@ func (s *Session) Screenshot() (image.Image, error) {
 		s.setErr(err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		err := fmt.Errorf("nanokvm screenshot HTTP %d", resp.StatusCode)
 		s.setErr(err)
@@ -677,7 +677,7 @@ func (s *Session) postJSON(path string, body any, out any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("nanokvm %s HTTP %d", path, resp.StatusCode)
 	}
