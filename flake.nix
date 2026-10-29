@@ -27,7 +27,7 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        go = pkgs.go_1_25;
+        go = pkgs.go_1_26;
         gomod2nixPkgs = gomod2nix.legacyPackages.${system};
         package = builtins.fromJSON (builtins.readFile ./package.json);
         freerdp = pkgs.freerdp.overrideAttrs (old: {
