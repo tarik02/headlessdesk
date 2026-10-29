@@ -9,7 +9,7 @@ import (
 	"headlessdesk/internal/winlocal"
 )
 
-var platformBackendTypes = []string{"rdp", "vnc", "command", "windows"}
+var platformBackendTypes = []string{"rdp", "vnc", "command", "nanokvm", "windows"}
 
 func validateBackendPlatform(name string, backendType string) error {
 	switch backendType {
