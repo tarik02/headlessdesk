@@ -27,13 +27,11 @@ import (
 	"headlessdesk/internal/commandbackend"
 	"headlessdesk/internal/control"
 	"headlessdesk/internal/desktop"
-	"headlessdesk/internal/freerdp"
 	"headlessdesk/internal/healthapi"
 	"headlessdesk/internal/httpapi"
 	"headlessdesk/internal/mcpapi"
 	"headlessdesk/internal/nanokvm"
 	"headlessdesk/internal/version"
-	"headlessdesk/internal/vnc"
 )
 
 type config struct {
@@ -629,6 +627,9 @@ func validateBackendConfig(name string, cfg backendConfig, roles backendRoles) e
 	if err := validateBackendPlatform(name, backendType); err != nil {
 		return err
 	}
+	if !backendTypeIncluded(backendType) {
+		return fmt.Errorf("backends.%s.type %s is not included in this build", name, backendType)
+	}
 	if cfg.Port > math.MaxUint16 {
 		return fmt.Errorf("invalid backends.%s.port: %d", name, cfg.Port)
 	}
@@ -708,6 +709,34 @@ func validateBackendConfig(name string, cfg backendConfig, roles backendRoles) e
 	case "macos":
 	}
 	return nil
+}
+
+func backendTypeIncluded(backendType string) bool {
+	switch backendType {
+	case "rdp":
+		return rdpBackendIncluded
+	case "vnc":
+		return vncBackendIncluded
+	case "kwin":
+		return kwinBackendIncluded
+	case "eis":
+		return eisBackendIncluded
+	default:
+		return true
+	}
+}
+
+func supportedBackendTypesDescription() string {
+	var types []string
+	for _, backendType := range platformBackendTypes {
+		if backendTypeIncluded(backendType) {
+			types = append(types, backendType)
+		}
+	}
+	if len(types) == 1 {
+		return types[0]
+	}
+	return strings.Join(types[:len(types)-1], ", ") + ", or " + types[len(types)-1]
 }
 
 func commandConfigured(cfg commandSpecConfig) bool {
@@ -978,42 +1007,6 @@ func startInputBackend(name string, cfg backendConfig) (desktop.InputBackend, er
 	}
 }
 
-func startRDPBackend(name string, cfg backendConfig) (desktop.Session, error) {
-	session, err := freerdp.StartSession(freerdp.Config{
-		Host:               cfg.Host,
-		Port:               backendPort(cfg, 3389),
-		Username:           cfg.Username,
-		Password:           cfg.Password,
-		Domain:             cfg.RDP.Domain,
-		DesktopWidth:       uint32(cfg.Width),
-		DesktopHeight:      uint32(cfg.Height),
-		KeyboardLayout:     uint32(cfg.RDP.KeyboardLayout),
-		InsecureSkipVerify: cfg.Insecure,
-		GraphicsMode:       cfg.RDP.GraphicsMode,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("start RDP backend %q: %w", name, err)
-	}
-	return session, nil
-}
-
-func startVNCBackend(name string, cfg backendConfig) (desktop.Session, error) {
-	session, err := vnc.StartSession(vnc.Config{
-		Host:          cfg.Host,
-		Port:          backendPort(cfg, 5900),
-		Username:      cfg.Username,
-		Password:      cfg.Password,
-		DesktopWidth:  uint32(cfg.Width),
-		DesktopHeight: uint32(cfg.Height),
-		Shared:        cfg.VNC.Shared,
-		ViewOnly:      cfg.VNC.ViewOnly,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("start VNC backend %q: %w", name, err)
-	}
-	return session, nil
-}
-
 func startNanoKVMBackend(name string, cfg backendConfig) (desktop.Session, error) {
 	session, err := nanokvm.StartSession(nanokvm.Config{
 		Host:               cfg.Host,
@@ -1106,13 +1099,6 @@ func parseDuration(value string) (time.Duration, error) {
 
 func normalizeBackendType(cfg backendConfig) string {
 	return strings.ToLower(strings.TrimSpace(cfg.Type))
-}
-
-func backendPort(cfg backendConfig, fallback uint16) uint16 {
-	if cfg.Port == 0 {
-		return fallback
-	}
-	return uint16(cfg.Port)
 }
 
 func closeComponent(component desktop.Component) {

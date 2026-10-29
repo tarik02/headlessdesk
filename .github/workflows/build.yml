@@ -13,11 +13,43 @@ permissions:
   contents: write
 
 jobs:
+  metadata:
+    name: release-metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      channel: ${{ steps.meta.outputs.channel }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            channel=stable
+            version="${GITHUB_REF_NAME#v}"
+          elif [[ $EVENT_NAME == push && $GITHUB_REF == refs/heads/master && $HEAD_COMMIT_MESSAGE != "chore: version packages"* ]]; then
+            # The version-packages commit is published as a stable tag instead.
+            IFS=. read -r major minor patch < <(jq -r .version package.json)
+            channel=nightly
+            version="$major.$minor.$((patch + 1))-nightly.$(date -u +%Y%m%d).$RUN_NUMBER"
+          else
+            channel=none
+            version=""
+          fi
+          printf 'channel=%s\nversion=%s\n' "$channel" "$version" >> "$GITHUB_OUTPUT"
+          printf '%s %s\n' "$channel" "$version"
+
   linux:
     name: linux-amd64
+    needs: metadata
     runs-on: ubuntu-24.04
     env:
       TARGET: linux_amd64
+      RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -51,9 +83,11 @@ jobs:
 
   macos:
     name: ${{ matrix.target }}
+    needs: metadata
     runs-on: ${{ matrix.runner }}
     env:
       TARGET: ${{ matrix.goreleaser_target }}
+      RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -87,9 +121,11 @@ jobs:
 
   windows-mingw:
     name: windows-amd64
+    needs: metadata
     runs-on: ubuntu-24.04
     env:
       TARGET: windows_amd64
+      RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
       VCPKG_DEFAULT_TRIPLET: x64-mingw-posix-dynamic
       VCPKG_REF: 6fad4fa784ab2506e35144a7c3d64738976445ea
       VCPKG_DISABLE_METRICS: "1"
@@ -200,6 +236,7 @@ jobs:
     name: release-assets
     runs-on: ubuntu-24.04
     needs:
+      - metadata
       - linux
       - macos
       - windows-mingw
@@ -234,3 +271,18 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
           fi
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+
+      - name: Publish nightly prerelease
+        if: needs.metadata.outputs.channel == 'nightly'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          # Tags created with GITHUB_TOKEN do not trigger the tag build above.
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "headlessdesk Nightly $VERSION (${GITHUB_SHA::12})" \
+            --prerelease \
+            --latest=false \
+            --generate-notes

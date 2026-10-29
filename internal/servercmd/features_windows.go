@@ -9,9 +9,7 @@ import (
 	"headlessdesk/internal/winlocal"
 )
 
-func supportedBackendTypesDescription() string {
-	return "rdp, vnc, command, nanokvm, or windows"
-}
+var platformBackendTypes = []string{"rdp", "vnc", "command", "nanokvm", "windows"}
 
 func validateBackendPlatform(name string, backendType string) error {
 	switch backendType {
@@ -22,14 +20,6 @@ func validateBackendPlatform(name string, backendType string) error {
 	default:
 		return nil
 	}
-}
-
-func startKWinBackend(name string) (desktop.OutputBackend, error) {
-	return nil, fmt.Errorf("backend %q type kwin is only supported on linux", name)
-}
-
-func startKWinEISBackend(name string) (desktop.InputBackend, error) {
-	return nil, fmt.Errorf("backend %q type eis is only supported on linux", name)
 }
 
 func startWindowsBackend(name string) (desktop.Session, error) {
